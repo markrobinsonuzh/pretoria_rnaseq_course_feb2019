@@ -1,0 +1,408 @@
+
+# In this tutorial we will:
+# 1) Inspect the quality of reads via fastqc and multiqc;
+# 2) Trim bases with TrimGalore and re-run QC on trimmed reads;
+# 3) Run STAR (splice-aware genome aligner);
+# 4) Run Salmon (transcriptome aligner);
+# 5) Import the output of STAR in R via Rsubread package;
+# 6) Import the output of Salmon in R via tximport package;
+# 7) Use some tools to inspect alignment, fasta and gtf files.
+
+# To obtain the raw data, download:
+https://github.com/csoneson/rnaseqworkflow
+
+##########################################################################################
+# 1.1) use fastqc and multiqc to check the quality of the fastq files.
+##########################################################################################
+# Set a base directory, inside which we downloaded the github repo:
+base_dir="/home/stiber/Pretoria_course/"
+ls $base_dir
+
+# set the path to the fastq files directory:
+fastq_files=$base_dir/example_data/FASTQ
+ls $fastq_files
+# 4 samples, 8 files: _1 and _2 refer to the 2 ends of paired-end reads, which are stored 2 files.
+
+# we make 1 directory for the 1st ex and 1 for the quality control
+mkdir $base_dir/ex_1
+mkdir $base_dir/ex_1/QC
+
+# We run a quality control via fastqc on each sample separately.
+# help: fastqc -h
+# this will take a couple of minutes each
+# look at the first .html generated while waiting for the output.
+
+cd $base_dir/ex_1/QC
+fastqc -o . $fastq_files/SRR1039508_R1.fastq.gz
+fastqc -o . $fastq_files/SRR1039508_R2.fastq.gz
+fastqc -o . $fastq_files/SRR1039509_R1.fastq.gz
+fastqc -o . $fastq_files/SRR1039509_R2.fastq.gz
+fastqc -o . $fastq_files/SRR1039512_R1.fastq.gz
+fastqc -o . $fastq_files/SRR1039512_R2.fastq.gz
+fastqc -o . $fastq_files/SRR1039513_R1.fastq.gz
+fastqc -o . $fastq_files/SRR1039513_R2.fastq.gz
+ls
+# for each fastq file, an html and a zip output files are created.
+
+# We gather together the individual fastqc output files via multiqc.
+# help: multiqc -h
+multiqc . -o .
+# -o specifies the output directory
+# multiqc_report.html
+
+# you can focus on a sub-set of samples in multiqc and only highlight those.
+# e.g. try to highlight a specific sample
+# (e.g., by typying 509_R2 on Toolbox/Highlight samples).
+
+##########################################################################################
+# 1.2) use TrimGalore to trim reads.
+##########################################################################################
+mkdir $base_dir/ex_1/trimmed_reads
+trim_dir=$base_dir/ex_1/trimmed_reads
+
+# -q 20, bps with Phred scores < 20 will be trimmed.
+# --length 20, if reads become shorted than 20 bps (after trimming), remove them
+# --illumina, use illumina standard adapters
+# -o $base_dir/ex_1/trimmed_reads, directory where the output will be stored
+# --paired, use paired end reads (if one read is removed, also remove the other one)
+# --fastqc, run fastqc on the outputed fastq files (with default parameters)
+# --gzip, compress the output file
+# -s/--stringency <INT>, Overlap with adapter sequence required to trim a sequence.
+# Defaults to a very stringent setting of 1, i.e. even a single base pair of overlapping sequence will be trimmed of the 3' end of any read.
+
+
+trim_galore -q 20 --phred33 --length 20 \
+--illumina -o $base_dir/ex_1/trimmed_reads \
+--fastqc --gzip --stringency 3 \
+--paired $fastq_files/SRR1039508_R1.fastq.gz $fastq_files/SRR1039508_R2.fastq.gz
+
+mkdir $base_dir/ex_1/trimmed_reads
+
+trim_galore -q 20 --phred33 --length 20 \
+--illumina -o $base_dir/ex_1/trimmed_reads \
+--fastqc --gzip --stringency 3 \
+--paired $fastq_files/SRR1039509_R1.fastq.gz $fastq_files/SRR1039509_R2.fastq.gz
+
+mkdir $base_dir/ex_1/trimmed_reads
+
+trim_galore -q 20 --phred33 --length 20 \
+--illumina -o $base_dir/ex_1/trimmed_reads \
+--fastqc --gzip --stringency 3 \
+--paired $fastq_files/SRR1039512_R1.fastq.gz $fastq_files/SRR1039512_R2.fastq.gz
+
+mkdir $base_dir/ex_1/trimmed_reads
+
+trim_galore -q 20 --phred33 --length 20 \
+--illumina -o $base_dir/ex_1/trimmed_reads \
+--fastqc --gzip --stringency 3 \
+--paired $fastq_files/SRR1039513_R1.fastq.gz $fastq_files/SRR1039513_R2.fastq.gz
+
+cd $base_dir/ex_1/trimmed_reads
+# We gather together the individual fastqc output files via multiqc.
+multiqc . -o .
+
+# check again the quality of trimmed reads.
+
+##########################################################################################
+# 1.3) Run STAR to align the paired-end reads to the genome
+##########################################################################################
+# STAR also computes the number of reads spanning over an exon junction, reported in the SJ.out.tab file.
+mkdir $base_dir/STAR
+
+# fasta file, reference genome (DNA)
+fasta=$base_dir/example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.dna.chromosome.1.1.10M.fa
+ls $fasta
+
+# gtf file
+gtf=$base_dir/example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf
+ls $gtf
+
+# folder where we will create a genome index:
+mkdir $base_dir/STAR/genome_index
+
+GDIR=$base_dir/STAR/genome_index
+
+# Generate Genome index (ALREADY GENERATED), it takes a while
+STAR --runMode genomeGenerate --runThreadN 4 --genomeDir $GDIR  \
+	   --genomeFastaFiles $fasta \
+  	   --sjdbGTFfile      $gtf \
+	   --sjdbOverhang 62
+ls $GDIR
+# sjdbOverhang ideally should be the lenght of the reads -1
+# our reads are 63 bps (before trimming at least).
+
+# output directory
+mkdir $base_dir/STAR/alignment
+outDir=$base_dir/STAR/alignment
+
+# we specify two fastq files for paired end reads
+# we save the file in .bam format (less storage space than .sam) and sort the output by coordinate
+
+# we input the trimmed reads:
+ls $trim_dir
+# specifically look at files ending with .fq.gz:
+ls $trim_dir/*.fq.gz
+
+# output files
+cd $outDir
+
+# <(zcat file.fq.gz ) will unzip the fq.gz file.
+
+# SortedByCoordinate sorts the output already, otherwise you need to use samtools to sort it.
+STAR --runMode alignReads --runThreadN 4 --genomeDir $GDIR \
+--readFilesIn <(zcat $trim_dir/SRR1039508_R1_val_1.fq.gz) <(zcat $trim_dir/SRR1039508_R2_val_2.fq.gz) \
+--outFileNamePrefix sample1 --outSAMtype BAM SortedByCoordinate
+
+STAR --runMode alignReads --runThreadN 4 --genomeDir $GDIR \
+--readFilesIn <(zcat $trim_dir/SRR1039509_R1_val_1.fq.gz) <(zcat $trim_dir/SRR1039509_R2_val_2.fq.gz) \
+--outFileNamePrefix sample2 --outSAMtype BAM SortedByCoordinate
+
+STAR --runMode alignReads --runThreadN 4 --genomeDir $GDIR \
+--readFilesIn <(zcat $trim_dir/SRR1039512_R1_val_1.fq.gz) <(zcat $trim_dir/SRR1039512_R2_val_2.fq.gz) \
+--outFileNamePrefix sample3 --outSAMtype BAM SortedByCoordinate
+
+STAR --runMode alignReads --runThreadN 4 --genomeDir $GDIR \
+--readFilesIn <(zcat $trim_dir/SRR1039513_R1_val_1.fq.gz) <(zcat $trim_dir/SRR1039513_R2_val_2.fq.gz) \
+--outFileNamePrefix sample4 --outSAMtype BAM SortedByCoordinate
+
+ls -l $outDir
+ls -l $outDir/sample1*
+# sample1Aligned.sortedByCoord.out.bam is the main output file, it contains the aligned reads.
+# sample1SJ.out.tab contains the number of reads mapping over the junctions between exons, for both annotated and novel junctions.
+
+##########################################################################################
+# 1.4) Run Salmon to align the paired-end reads to the transcriptome
+##########################################################################################
+mkdir $base_dir/Salmon
+
+# fasta file, reference transcriptome (cDNA)
+fasta_tr=$base_dir/example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.cdna.all.1.1.10M.fa.gz
+
+# where to build the index
+mkdir $base_dir/Salmon/Salmon_index
+idx=$base_dir/Salmon/Salmon_index
+
+# Build index, it requires some time.
+salmon index -i $idx -t $fasta_tr -p 4 --type quasi -k 31
+# -p 20, specifies the number of clusters to use, 20 in this case.
+ls $idx
+
+# location of fastq files, same as above:
+# trim_dir=$base_dir/ex_1/trimmed_reads
+
+# output directory
+mkdir $base_dir/Salmon/alignment
+out_Salmon=$base_dir/Salmon/alignment
+
+# Run Salmon
+salmon quant -i $idx -l A \
+-1 $trim_dir/SRR1039508_R1_val_1.fq.gz -2 $trim_dir/SRR1039508_R2_val_2.fq.gz \
+-p 4 -o $out_Salmon/sample1 --dumpEq \
+--numBootstraps 100 --seqBias --gcBias
+
+salmon quant -i $idx -l A \
+-1 $trim_dir/SRR1039509_R1_val_1.fq.gz -2 $trim_dir/SRR1039509_R2_val_2.fq.gz \
+-p 4 -o $out_Salmon/sample2 --dumpEq \
+--numBootstraps 100 --seqBias --gcBias
+
+salmon quant -i $idx -l A \
+-1 $trim_dir/SRR1039512_R1_val_1.fq.gz -2 $trim_dir/SRR1039512_R2_val_2.fq.gz \
+-p 4 -o $out_Salmon/sample3 --dumpEq \
+--numBootstraps 100 --seqBias --gcBias
+
+salmon quant -i $idx -l A \
+-1 $trim_dir/SRR1039513_R1_val_1.fq.gz -2 $trim_dir/SRR1039513_R2_val_2.fq.gz \
+-p 4 -o $out_Salmon/sample4 --dumpEq \
+--numBootstraps 100 --seqBias --gcBias
+
+# -l A, automatic detection of the library type (stranded vs un-strander, single-end vs paired-end, etc...)
+# --seqBias and --gcBias correct for sequence-specific biases and for GC biases in the input fastq files.
+
+ls $out_Salmon
+ls $out_Salmon/sample1
+head $out_Salmon/sample1/quant.sf
+# salmon creates a folder for each output file.
+# quant.sf is the main output file containing the transcript level estimated counts.
+
+##########################################################################################
+# 1.5) use Rsubread to load the output from STAR in R
+##########################################################################################
+# set the cd to STAR output:
+cd $outDir
+
+# move the current directory to STAR alignment:
+# either cd $outDir before running R, or:
+setwd("../../STAR/alignment")
+
+R
+# in R:
+# With system("command"), we can run "command" in bash,
+# check names in the current diretory:
+system("ls")
+
+# we load the aligned reads and count how many reads map to each gene.
+library(Rsubread)
+file_names = paste0("sample", 1:4, "Aligned.sortedByCoord.out.bam")
+file_names
+file.exists(file_names)
+
+# gtf should be here:
+system("ls ../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf")
+
+x = featureCounts(files = file_names,
+    annot.ext = "../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf",
+	isGTFAnnotationFile = TRUE, isPairedEnd = TRUE )
+str(x)
+# count matrix with 336 genes and 4 samples.
+head(x$counts); dim(x$counts)
+
+# in our example dataset, some genes are not expressed: we filter only the expressed genes.
+non_zero = rowSums(x$counts)>0
+counts = x$counts[non_zero,]
+# rename columns as sample1, ..., sample4
+colnames(counts) = paste0("sample", 1:4)
+head(counts); dim(counts)
+
+# we load the counts for each exon-exon junction:
+junction_names = paste0("sample", 1:4, "SJ.out.tab")
+junction_names
+file.exists(junction_names)
+
+junctions = lapply(junction_names, read.table)
+head(junctions[[1]])
+# column 7 contains the number of reads mapping to the junction
+# we can perform differential expression/usage analyses on the junction counts too to study alternative splicing
+# similarly to DTU/DTE but with junctions counts only instead of transcript counts.
+# keep in mind that in this way we only use a sub-set of the reads, namely those spanning over >1 exon.
+
+# in this case 1/3 of the reads are junction reads.
+sum(sapply(junctions, function(x) sum(x$V9)))/sum(x$counts)
+
+# total number of counts:
+sum(x$counts)
+162,857
+
+##########################################################################################
+# 1.6) use tximport to load the output from Salmon in R
+##########################################################################################
+
+cd $out_Salmon
+
+R
+# in R:
+library(tximport)
+
+# move the current directory to Salmon alignment:
+# either cd $out_Salmon before running R, or:
+# setwd("../../Salmon/alignment")
+
+file_names = paste0("sample", 1:4, "/quant.sf")
+file_names
+file.exists(file_names)
+
+txi = tximport(file_names, type="salmon", txOut = FALSE)
+str(txi);
+# txOut = T if we only want transcript level counts
+# txOut = F if we also want gene level counts (obtained from the transcript level estimates).
+# tx2gene: if we want the gene level estimates, we need to provide Salmon with a 2 column matrix with the matching between transcripts and genes.
+# $infReps represents the bootstrap replicates.
+
+# 1,110 transcritps
+str(txi)
+dim(txi$abundance); # Abundance matrix
+# abundanceCol: name of column with abundances (e.g. TPM or FPKM)
+dim(txi$counts);    # actual matrix of counts, i.e. the estimated number of reads mapping each transcript.
+
+# Look the counts matrix (we filter non-zero counts)
+head( txi$counts[rowSums(txi$counts)>0,] )
+# total number of counts:
+sum(txi$counts)
+170,481
+# 170 k counts from Salmon
+# 163 k counts from STAR
+
+##########################################################################################
+# 1.7) use Biostrings to load the (transcriptome) fasta file and create a gene-transcript matching
+##########################################################################################
+
+library(Biostrings)
+fasta = readDNAStringSet("../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.cdna.all.1.1.10M.fa.gz")
+fasta
+
+fasta_names = names(fasta)
+head(fasta_names)
+
+fasta_names_split = strsplit(fasta_names, " ")
+fasta_names_split[[1]]
+
+tr_name = sapply(fasta_names_split, function(x) x[[1]])
+head(tr_name)
+
+gene_name = sapply(fasta_names_split, function(x) x[[4]])
+head(gene_name)
+gene_name = substring(gene_name, first = 6)
+head(gene_name)
+
+tx2genes = data.frame( tr_id = tr_name, gene_id = gene_name)
+
+# load Salmon output aggregating transcript counts at the gene-level:
+setwd("../../Salmon/alignment")
+
+syile_names = paste0("sample", 1:4, "/quant.sf")
+file_names
+file.exists(file_names)
+
+txi_gene = tximport(file_names, type="salmon", tx2gene = tx2genes)
+str(txi_gene);
+head(txi_gene$counts)
+
+# 182 genes (there were 1,110 transcripts)
+
+sum(txi_gene$counts)
+170,481
+# same as before, transcript counts have simply been aggregated to the corresponding gene.
+
+
+##########################################################################################
+# 1.7) rtracklayer::import,
+GenomicAlignments::readGAlignmentPairs and Rsubread::featureCounts
+##########################################################################################
+cd $base_dir
+R
+
+
+# rtracklayer
+library(rtracklayer)
+# import the gtf:
+gtf = import("example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf", format = "gtf")
+table(gtf$gene_biotype)
+# focus on rRNA genes:
+gtf[gtf$gene_biotype == "rRNA"]
+
+
+# GenomicAlignments
+library(GenomicAlignments)
+# GenomicAlignments helps you visualizse your data
+# vignette: http://bioconductor.org/packages/release/bioc/html/GenomicAlignments.html
+sample1 = readGAlignmentPairs("STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
+sample1
+sample1[[2]] # 2nd (paired-ended) read from sample1:
+# you can see start/end of reads, width of the (genomic) interval.
+# for read 2 it's 63 bps (the length of the read)
+# for read 1 it's 448 bps (it is a junction read: njunc = 1), so it's jumping over an intron.
+
+
+# Rsubread
+library(Rsubread)
+# vignette: https://bioconductor.org/packages/release/bioc/vignettes/Rsubread/inst/doc/Rsubread.pdf
+sample1_features = featureCounts("STAR/alignment/sample1Aligned.sortedByCoord.out.bam",
+                    isPairedEnd=TRUE)
+summary(sample1_features)
+Length Class      Mode
+counts     27179  -none-     numeric
+annotation     6  data.frame list
+targets        1  -none-     character
+stat           2  data.frame list
+
+propmapped("STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
+# all our reads were properly mapped.
