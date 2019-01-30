@@ -1,239 +1,320 @@
+# Overview paper about DTU based on transcript estimated counts:
+# Swimming downstream: statistical analysis of differential transcript usage following Salmon quantification 
+# https://f1000research.com/articles/7-952/v3
+
+
 # In this tutorial we will do:
-# 1) DTU via DRIMSeq;
-# 2) DEU via DEXSeq;
-
-cd
-mkdir ex_3
-cd ex_3
-
-R
-# in R:
+# 1) DTU analyses via DRIMSeq;
+# 2) DEU analyses via DEXSeq (actually DTU, since we'll use transcript esrtimated counts);
+# 3) compare the results via a Venn diagram.
+# 4) 2-stage testing via StageR
 
 ##########################################################################################
-# 1) DTU via DRIMSeq
+# 1) DRIMSeq
 ##########################################################################################
+# DRIMSeq vignette: http://bioconductor.org/packages/release/bioc/vignettes/DRIMSeq/inst/doc/DRIMSeq.pdf
+rm(list = ls())
+load("txi_counts_matrices.RData")
+ls()
 
-library(DRIMSeq)
-# package for differential transcript usage (DTU) and splicing quantitative trait loci (sQTL)
-# it inputs estimated transcript level counts, obtained via salmon, kallisto etc...
-# it assumes a Dirichlet-Multinomial hierarchical structure for the transcript level counts across samples of each group.
-# For each gene, it performs a likelihood ratio test (LRT) testing if the average transcript proportions vary between two groups or not.
-# The dispersion parameters is kept fixed between the two conditions and is not part of the test: interested lies in the proportions.
+library(DRIMSeq); library(edgeR)
+samples = c("F06", "F15", "F18",
+            "M06", "M15", "M18")
 
-# DRIMSeq tests for DTU both at the gene and transcript level.
+# match each transcript with the corresponding gene id
+head(GeneToTrans)
+matching =  match(rownames(txi$counts), GeneToTrans$Tr_id)
+head(GeneToTrans[matching, ]);
+head(rownames(txi$counts))
+gene_id = GeneToTrans$Gene_id[matching ]
+colnames(txi$counts) = samples
 
-# DRIMSeq also allows the inclusion of covariates if using a Wald test instead of the LRT.
-# Covariates can be of interest, i.e. you might want to test if a covariate is involved in DTU,
-# or simple confounding factors, i.e. you might want to remove the effect of a covariate when testing between 2 groups, 
-# especially if the covariate is not homogeneous between the 2 groups, e.g. age, if one group is significantly younger than the other.
+counts_df = data.frame(txi$counts, gene_id = gene_id, feature_id = rownames(txi$counts))
+head(counts_df)
 
-# Example below taken from DRIMSeq vignette:
-library(PasillaTranscriptExpr)
-data_dir  <- system.file("extdata", package = "PasillaTranscriptExpr")
+####################################################################################
+# Ignore time, group is the only covariate:
+####################################################################################
+sampleTable <- data.frame(sample_id = samples,
+                      group = c( rep("female", 3), rep("male", 3) ))
+sampleTable
 
-## Load metadata
-pasilla_metadata <- read.table(file.path(data_dir, "metadata.txt"), 
-  header = TRUE, as.is = TRUE)
-
-## Load counts
-pasilla_counts <- read.table(file.path(data_dir, "counts.txt"), 
-  header = TRUE, as.is = TRUE)
-head(pasilla_counts)
-# feature_id = trancript_id in this case (it can be SNP_id in sQTL analyses)
-
-## order the data in a data.frame
-pasilla_samples <- data.frame(sample_id = pasilla_metadata$SampleName, 
-  								group = pasilla_metadata$condition)
-levels(pasilla_samples$group)
-
-# create a dmDSdata object
-d <- dmDSdata(counts = pasilla_counts, samples = pasilla_samples)
-d 
-# d gives a summary of the data: 14112 genes
+# Create a dmDSdata object
+d <- dmDSdata(counts = counts_df, samples = sampleTable)
+d
 head(counts(d), 3)
 head(samples(d), 3)
+dim(counts(d))
 
-## we subset the data to speed up calculations.
-gene_id_subset <- readLines(file.path(data_dir, "gene_id_subset.txt"))
-d <- d[names(d) %in% gene_id_subset, ]
-d
-# 42 genes
-
-pdf("DRIMSeq.pdf")
+# Nr of features (transcripts) per gene
 plotData(d)
 
-## We filter genes with low count numbers (check parameters and defaults)
-# independent filtering step.
-d <- dmFilter(d, min_samps_gene_expr = 7, min_samps_feature_expr = 3,
-  min_gene_expr = 10, min_feature_expr = 10)
+table(samples(d)$group)
+# filter genes with < 10 counts and transcripts with relative abundance < 0.01
+d <- dmFilter(d, min_gene_expr = 100, min_feature_expr = 1, min_feature_prop =  0.1)
 d
-# 26 genes.
+plotData(d)
+# Genes with 1 tr only were removed, ok!
+# with 25,954 genes and 6 samples
+# min_gene_expr	   Minimal gene expression.
+# min_feature_expr Minimal feature expression.
+# min_feature_prop Minimal proportion for feature expression. This value should be between 0 and 1.
 
-## We create the design matrix corresponding to the groups
 design_full <- model.matrix(~ group, data = samples(d))
 design_full
 
-## We set a seed to make the analysis reproducible
-set.seed(123)
-## Calculate precision
-d <- dmPrecision(d, design = design_full)
-d
-# it takes a long time if computed on all genes.
+# Dirichlet-Multinomial precision estimate:
+# This took 6 mins on my laptop (on 4 cores)
+# To speed up, set genewise_precision = FALSE
+system.time({d <- dmPrecision(d, verbose = 1, genewise_precision = TRUE, 
+                 design = design_full,
+                 BPPARAM = BiocParallel::MulticoreParam(workers = 4))})
 common_precision(d)
 head(genewise_precision(d))
-# it computes a common precision for all genes and a gene-specific precision.
-
 plotPrecision(d)
 
-## We fit the model to the data and maximise the likelihood.
-d <- dmFit(d, design = design_full, verbose = 1)
+# We fit the model
+# ?dmFit
+d <- dmFit(d, design = design_full, verbose = 1, BPPARAM = BiocParallel::MulticoreParam(workers = 4))
 d
 
-## Get fitted proportions
 head(proportions(d))
 ## Get the Dirichlet-Multinomial (DM) regression coefficients (gene-level)
 head(coefficients(d))
 ## Get the Beta-Binomial (BB) regression coefficients (feature-level)
 head(coefficients(d), level = "feature")
 
-## We perform a LRT between the two groups, coef indicates the coefficient to test
-d <- dmTest(d, coef = "groupKD", verbose = 1)
+# We test the genes
+# ?dmTest
+# name 'coef' as the coefficient in the design matrix:
 design(d)
-head(results(d), 3)
-# adj_pvalue is the adjusted p.value to control the FDR with the BH correction method.
+d <- dmTest(d, coef = "groupmale", verbose = 1, BPPARAM = BiocParallel::MulticoreParam(workers = 4))
+d
 
-## We access the results via the results function
-results_gene	  = results(d, level = "gene")
+plotPValues(d) # gene-level p.values
+plotPValues(d, level = "feature") # tr-level p.values
+
+results_gene	    = results(d, level = "gene")
 results_trancript = results(d, level = "feature")
-dim(results_gene); dim(results_trancript)
-# [1] 26  5
-# [1] 114   6
-head(results_gene)
-head(results_trancript)
 
-# many more transcript level tests: for every gene there are > 1 transcripts.
+# Save results:
+save(results_gene, results_trancript, file = "Results/DRIMSeq_results.RData")
 
-## Plot results:
-plotPValues(d) # gene level
-plotPValues(d, level = "feature") # transcript level
-
-## Plot top DTU gene:
-# we sort according to the p.value (or adjusted p.value: remember that when adjusting p.values, the order remains unchanged!)
+# plot Results for the TOP gene (smallest p-value):
 results_gene <- results_gene[order(results_gene$pvalue, decreasing = FALSE), ]
 top_gene_id <- results_gene$gene_id[1]
-
 plotProportions(d, gene_id = top_gene_id, group_variable = "group")
-plotProportions(d, gene_id = top_gene_id, group_variable = "group", 
-  plot_type = "lineplot")
-plotProportions(d, gene_id = top_gene_id, group_variable = "group", 
-  plot_type = "ribbonplot")
+plotProportions(d, gene_id = top_gene_id, group_variable = "group",  plot_type = "lineplot" )
+# in ribbonplot you can only see the average proportion (not the sample-specific ones):
+plotProportions(d, gene_id = top_gene_id, group_variable = "group",  plot_type = "ribbonplot")
 
-dev.off()
+head(results_gene)
+
 
 ##########################################################################################
-# 2) DEU via DEXSeq
+# 2) DEXSeq
 ##########################################################################################
-# DEXSeq performs differential exon usage based on the exon level counts.
-# Drawback:  it takes DEU as a surrogate for DTU (they are not the same).
-# Advantage: there is no uncertainty about the counts at the exon level.
-# It tests for DEU every exon bin.
-# A p.value at the gene level is obtained as the minimum p.value of the exon tests (statistically speaking, not very elegant...).
-# It is a very popular package and works well.
+# We perform DEU on transcript-level counts, with DEXSeq:
+# DEXSeq vignette: https://bioconductor.org/packages/release/bioc/vignettes/DEXSeq/inst/doc/DEXSeq.pdf
 
-# Example below taken from DEXSeq vignette:
+rm(list = ls())
+load("txi_counts_matrices.RData")
+ls()
 
-library(pasilla); library(DEXSeq)
+library(DEXSeq)
+samples = c("F06", "F15", "F18",
+            "M06", "M15", "M18")
 
-## location of data to load (in the package pasilla):
-inDir = system.file("extdata", package="pasilla")
-countFiles = list.files(inDir, pattern="fb.txt$", full.names=TRUE)
-basename(countFiles)
-## location of the gff file in the pasilla package:
-flattenedFile = list.files(inDir, pattern="gff$", full.names=TRUE)
-basename(flattenedFile)
+# match each transcript with the corresponding gene id
+head(GeneToTrans)
+matching =  match(rownames(txi$counts), GeneToTrans$Tr_id)
+head(GeneToTrans[matching, ]);
+head(rownames(txi$counts))
+gene_id = GeneToTrans$Gene_id[matching ]
+colnames(txi$counts) = samples
 
-## description of the data
-sampleTable = data.frame(
-   row.names = c( "treated1", "treated2", "treated3", 
-      "untreated1", "untreated2", "untreated3", "untreated4" ),
-   condition = c("knockdown", "knockdown", "knockdown",  
-      "control", "control", "control", "control" ),
-   libType = c( "single-end", "paired-end", "paired-end", 
-      "single-end", "single-end", "paired-end", "paired-end" ) )
-
+####################################################################################
+# Ignore time, group is the only covariate:
+####################################################################################
+sampleTable = data.frame( row.names = samples,
+                          condition = c(rep("F", 3), rep("M", 3)) )
 sampleTable
 
-## load data into DEXSeq:
-dxd = DEXSeqDataSetFromHTSeq(
-   countFiles,
-   sampleData=sampleTable,
-   design= ~ sample + exon + condition:exon,
-   flattenedfile=flattenedFile )
-# it takes a bit.
-
-## like for DRIMSeq, we subset the data (for computational reasons) and focus on a subset of genes only:
-genesForSubset = read.table( 
-  file.path(inDir, "geneIDsinsubset.txt"), 
-  stringsAsFactors=FALSE)[[1]]
-length(genesForSubset)
-# 46 genes selected.
-
-dxd = dxd[geneIDs( dxd ) %in% genesForSubset,]
+dxd = DEXSeqDataSet(countData = round( txi$counts ),
+                    sampleData=sampleTable,
+                    design= ~ sample + exon + condition:exon,
+                    featureID = rownames(txi$counts),
+                    groupID = gene_id)
 dxd
-
 head( counts(dxd), 5 )
-# 1 row per exon bin: the counts are at the exon bin level instead of the transcript level (as for DTU).
+head( featureCounts(dxd), 5 )
 
-## Estimate size factors (normalization)
+# normalization:
 dxd = estimateSizeFactors( dxd )
-# "Different samples might be sequenced with different depths. In order to adjust for such
-# coverage biases, we estimate size factors, which measure relative sequencing depth. DEXSeq
-# uses the same method as DESeq and DESeq2, which is provided in the function estimate SizeFactors."
 
-## Estimate dispersions (moderated towards a common trend).
-dxd = estimateDispersions( dxd )
-# gene-level dispersions are shrinked towards a common trend.
+# Parallelize future tasks on 4 cores:
+library(BiocParallel)
+BPPARAM = BiocParallel::MulticoreParam(workers = 4)
 
-pdf("DEXSeq.pdf")
+# dispersion estimate:
+dxd = estimateDispersions( dxd, BPPARAM=BPPARAM)
 plotDispEsts( dxd )
 
-## We test for DEU at the exon level.
-dxd = testForDEU( dxd )
-# gene level p.value is obtained as the minimum p.value among the exons of the gene...not a nice aggregation.
+# NB test for differential exon/transcript usage:
+dxd = testForDEU( dxd, BPPARAM=BPPARAM)
 
-## We estimate the fold change of every exon.
+# exon/transcript fold change between conditions:
 dxd = estimateExonFoldChanges( dxd, fitExpToVar="condition")
+plotMA( dxd )
 
-## Examine the results:
-dxr1 = DEXSeqResults( dxd )
-dxr1
-# 1 row per exon.
+res = DEXSeqResults( dxd) # independentFiltering = FALSE )
+res
+res[ order(res$padj), ] # the most significant genes on top.
+res[ order(abs(res$log2fold_M_F), decreasing = T), ] # the highest abs(log2FC) on top
 
-## ----tallyExons------------------------------------------------------------
-table ( dxr1$padj < 0.05 )
-# nr of significant and non-significant exons.
+# perGeneQValue computes an adjusted gene-level p.value,
+# acconting for the fact that several transcript/exon tests come from the same gene:
+qval = perGeneQValue(res)
+head(sort(qval))
 
-## Plot Mean expression versus log_2 fold change plot.
-## Significant hits (at \\Robject{padj}<0.1) are coloured in red.
-plotMA( dxr1, cex=0.8 )
-dev.off()
+# Plot of exon/transcript abundance:
+# plotDEXSeq( res,geneID="TRINITY_DN5863_c0_g1", cex.axis=1.2, cex=1.3, lwd=2)
+
+res_gene = data.frame(gene = names(qval), qval)
+
+save(res, res_gene, file="Results/DEXSeq_results.RData")
+
+####################################################################################
+# Add time as a covariate:
+####################################################################################
+sampleTable <- data.frame(condition = factor(rep(c("F", "M"), each = 3)), 
+                          time = factor(rep(c("6", "15", "18"),  2)) )
+rownames(sampleTable) <- colnames(txi$counts)
+sampleTable
+
+dxd = DEXSeqDataSet(countData = round( txi$counts ),
+                    sampleData=sampleTable,
+                    design= ~ sample + exon + time:exon + condition:exon,
+                    featureID = rownames(txi$counts),
+                    groupID = gene_id)
+dxd
+head( counts(dxd), 5 )
+head( featureCounts(dxd), 5 )
+
+# normalization:
+dxd = estimateSizeFactors( dxd )
+
+# Parallelize future tasks on 4 cores:
+library(BiocParallel)
+BPPARAM = BiocParallel::MulticoreParam(workers = 4)
+
+# dispersion estimate:
+dxd = estimateDispersions( dxd, BPPARAM=BPPARAM)
+plotDispEsts( dxd )
+
+# NB test for differential exon/transcript usage:
+dxd = testForDEU( dxd, BPPARAM=BPPARAM)
+
+# exon/transcript fold change between conditions:
+dxd = estimateExonFoldChanges( dxd, fitExpToVar="condition")
+plotMA( dxd )
+
+res = DEXSeqResults( dxd) # independentFiltering = FALSE )
+res
+res[ order(res$padj), ] # the most significant genes on top.
+res[ order(abs(res$log2fold_M_F), decreasing = T), ] # the highest abs(log2FC) on top
+
+# perGeneQValue computes an adjusted gene-level p.value,
+# acconting for the fact that several transcript/exon tests come from the same gene:
+qval = perGeneQValue(res)
+head(sort(qval))
+
+# Plot of exon/transcript abundance:
+# plotDEXSeq( res,geneID="TRINITY_DN5863_c0_g1", cex.axis=1.2, cex=1.3, lwd=2)
+
+res_gene = data.frame(gene = names(qval), qval)
+
+save(res, res_gene, file="Results/DEXSeq_results_InclTime.RData")
+
+####################################################################################
+# Compare results, before and after adding time:
+####################################################################################
+load("Results/DEXSeq_results_InclTime.RData")
+res_gene_time = res_gene
+
+rm(res_gene)
+load("Results/DEXSeq_results.RData")
+
+length(res_gene_time$qval); length(res_gene$qval)
+
+plot(res_gene_time$qval, res_gene$qval)
+abline(0,1, col = "red", lwd = 3)
+
+dim(lrt_time$table); dim(lrt$table)
+
+sum(res_gene_time$qval < 0.05)
+sum(res_gene$qval < 0.05)
+# Similarly to the DGE case, we have many more significant genes after accounting for time.
 
 
 ##########################################################################################
-# More on the topic: sQTL, splicing Quantitative Trait Loci
+# 3) Compare DRIMSeq, DEXSeq as well as edgeR and DESeq2 significant genes (for a speficied threshold)
+# with a Venn diagram
 ##########################################################################################
-# Similarly to DTU/DTE/DEU, we can look for sQTL.
+# First, we need to sort the results by gene name in order to compare the same gene
+# Then, we need to set a significance threshold, e.g. 5%, and select the significant and non-significant genes.
 
-# In DTU/DTE/DEU,  we test if a gene is associated to differential splicing between conditions.
-# In sQTL, 	       we test if a gene is associated to differential splicing between phenotypes (defined by SNPs):
-# the grouping is defined by the phenotypes, hence gene-level information about SNPs locations is essential.
-# We search for the SNPs which define phenotypes associated to differential splicing.
+rm(list = ls())
+load("txi_counts_matrices.RData")
+RES = data.frame(gene_id = rownames(txi_gene$counts))
 
-# The modelling assumptions (the negative-binomial) and the testing procedure are unchanged.
+# edgeR:
+load("Results/Results_edgeR_InclTime.Rdata")
+res_edgeR = topTags(lrt, n = Inf)$table
+match_ = match(RES$gene_id, rownames(res_edgeR))
+res_edgeR_ordered = res_edgeR[ match_, ]
 
-# In sQTL we apply many more tests than in DTU/DTE/DEU.
-# In DTU/DTE/DEU we have 1 test per gene;
-# in sQTL we have many tests per gene: for every gene we test several SNPs.
-# Typically, for every gene, we do not test all possible SNPs.
-# Indeed, we constrain the search space (for computational reasons and to diminish the number of tests)
-# to the SNPs up to a certain distance to the gene of interest, which are more likely to be associated to the gene of interest.
+# DESeq2:
+load("Results/Results_DESeq2_InclTime.RData")
+res_DESeq2 = res
+match_2 = match(RES$gene_id, rownames(res_DESeq2))
+res_DESeq2_ordered = res_DESeq2[ match_2, ]
+
+# DRIMSeq:
+load("Results/DRIMSeq_results.RData")
+res_DRIMSeq =  results_gene
+match_3 = match(RES$gene_id, results_gene$gene_id)
+res_DRIMSeq_ordered = res_DRIMSeq[ match_3, ]
+
+# DEXSeq:
+load("Results/DEXSeq_results.RData")
+res_DEXSeq =  res_gene
+match_4 = match(RES$gene_id, res_DEXSeq$gene)
+res_DEXSeq_ordered = res_DEXSeq[ match_4, ]
+
+
+# select a cut-off (e.g., 0.05)
+de_05_edgeR    <- res_edgeR_ordered$FDR < .05
+de_05_DESeq2   <- res_DESeq2_ordered$padj < .05
+de_05_DRIMSeq  <- res_DRIMSeq_ordered$adj_pvalue < .05
+de_05_DEXSeq   <- res_DEXSeq_ordered$qval < .05
+
+# plot the venn diagramm of the significant genes in the two analyses:
+res_05 <- cbind(edgeR=de_05_edgeR, DESeq2=de_05_DESeq2,
+                DRIMSeq=de_05_DRIMSeq, DEXSeq=de_05_DEXSeq)
+
+head(res_05); tail(res_05)
+
+vennDiagram(res_05)
+# Remember this is not a method evaluation!
+# The true status of the genes is unknown here:
+# we are just comparing the results to see how similarly the methods' final outputs are.
+
+# what do we conclude ?
+# There is a decent agreement between the DGE methods and the DS tools.
+# It's clear that DGE and DS search for different biological phenomena.
+
+##########################################################################################
+# 4) 2-stage testing via StageR:
+##########################################################################################
+# StageR vignette: http://bioconductor.org/packages/release/bioc/vignettes/stageR/inst/doc/stageRVignette.html

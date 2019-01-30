@@ -107,7 +107,7 @@ multiqc . -o .
 # 1.3) Run STAR to align the paired-end reads to the genome
 ##########################################################################################
 # STAR also computes the number of reads spanning over an exon junction, reported in the SJ.out.tab file.
-mkdir $base_dir/STAR
+mkdir $base_dir/ex_1/STAR
 
 # fasta file, reference genome (DNA)
 fasta=$base_dir/example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.dna.chromosome.1.1.10M.fa
@@ -118,9 +118,9 @@ gtf=$base_dir/example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.
 ls $gtf
 
 # folder where we will create a genome index:
-mkdir $base_dir/STAR/genome_index
+mkdir $base_dir/ex_1/STAR/genome_index
 
-GDIR=$base_dir/STAR/genome_index
+GDIR=$base_dir/ex_1/STAR/genome_index
 
 # Generate Genome index (ALREADY GENERATED), it takes a while
 STAR --runMode genomeGenerate --runThreadN 4 --genomeDir $GDIR  \
@@ -132,8 +132,8 @@ ls $GDIR
 # our reads are 63 bps (before trimming at least).
 
 # output directory
-mkdir $base_dir/STAR/alignment
-outDir=$base_dir/STAR/alignment
+mkdir $base_dir/ex_1/STAR/alignment
+outDir=$base_dir/ex_1/STAR/alignment
 
 # we specify two fastq files for paired end reads
 # we save the file in .bam format (less storage space than .sam) and sort the output by coordinate
@@ -173,14 +173,14 @@ ls -l $outDir/sample1*
 ##########################################################################################
 # 1.4) Run Salmon to align the paired-end reads to the transcriptome
 ##########################################################################################
-mkdir $base_dir/Salmon
+mkdir $base_dir/ex_1/Salmon
 
 # fasta file, reference transcriptome (cDNA)
 fasta_tr=$base_dir/example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.cdna.all.1.1.10M.fa.gz
 
 # where to build the index
-mkdir $base_dir/Salmon/Salmon_index
-idx=$base_dir/Salmon/Salmon_index
+mkdir $base_dir/ex_1/Salmon/Salmon_index
+idx=$base_dir/ex_1/Salmon/Salmon_index
 
 # Build index, it requires some time.
 salmon index -i $idx -t $fasta_tr -p 4 --type quasi -k 31
@@ -191,8 +191,8 @@ ls $idx
 # trim_dir=$base_dir/ex_1/trimmed_reads
 
 # output directory
-mkdir $base_dir/Salmon/alignment
-out_Salmon=$base_dir/Salmon/alignment
+mkdir $base_dir/ex_1/Salmon/alignment
+out_Salmon=$base_dir/ex_1/Salmon/alignment
 
 # Run Salmon
 salmon quant -i $idx -l A \
@@ -231,8 +231,10 @@ head $out_Salmon/sample1/quant.sf
 cd $outDir
 
 # move the current directory to STAR alignment:
-# either cd $outDir before running R, or:
-setwd("../../STAR/alignment")
+# either cd $outDir before running R, or (from the $base_dir run the set working directory command:
+# setwd("ex_1/STAR/alignment")
+# to see the current directory, run:
+getwd()
 
 R
 # in R:
@@ -300,7 +302,7 @@ file_names = paste0("sample", 1:4, "/quant.sf")
 file_names
 file.exists(file_names)
 
-txi = tximport(file_names, type="salmon", txOut = FALSE)
+txi = tximport(file_names, type="salmon", txOut = TRUE)
 str(txi);
 # txOut = T if we only want transcript level counts
 # txOut = F if we also want gene level counts (obtained from the transcript level estimates).
@@ -326,7 +328,7 @@ sum(txi$counts)
 ##########################################################################################
 
 library(Biostrings)
-fasta = readDNAStringSet("../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.cdna.all.1.1.10M.fa.gz")
+fasta = readDNAStringSet("../../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.cdna.all.1.1.10M.fa.gz")
 fasta
 
 fasta_names = names(fasta)
@@ -346,8 +348,6 @@ head(gene_name)
 tx2genes = data.frame( tr_id = tr_name, gene_id = gene_name)
 
 # load Salmon output aggregating transcript counts at the gene-level:
-setwd("../../Salmon/alignment")
-
 syile_names = paste0("sample", 1:4, "/quant.sf")
 file_names
 file.exists(file_names)
@@ -355,6 +355,9 @@ file.exists(file_names)
 txi_gene = tximport(file_names, type="salmon", tx2gene = tx2genes)
 str(txi_gene);
 head(txi_gene$counts)
+
+# alternatively, we can re-cycle the transcript-level txi object, and aggregate gene-counts via summarizeToGene
+txi_gene_2 = summarizeToGene(txi = txi, tx2gene = tx2genes)
 
 # 182 genes (there were 1,110 transcripts)
 
@@ -369,7 +372,6 @@ GenomicAlignments::readGAlignmentPairs and Rsubread::featureCounts
 ##########################################################################################
 cd $base_dir
 R
-
 
 # rtracklayer
 library(rtracklayer)
@@ -398,11 +400,6 @@ library(Rsubread)
 sample1_features = featureCounts("STAR/alignment/sample1Aligned.sortedByCoord.out.bam",
                     isPairedEnd=TRUE)
 summary(sample1_features)
-Length Class      Mode
-counts     27179  -none-     numeric
-annotation     6  data.frame list
-targets        1  -none-     character
-stat           2  data.frame list
 
 propmapped("STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
 # all our reads were properly mapped.
