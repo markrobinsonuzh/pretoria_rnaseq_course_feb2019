@@ -3,141 +3,166 @@
 # 1) exploratory plots;
 # 2) DGE analysis via edgeR;
 # 3) DGE analysis via DESeq2;
-# 4) DGE analysis via DESeq;
-# 5) compare the results via a Venn diagram.
+# 4) compare the results via a Venn diagram.
 
-cd
-mkdir ex_2
-cd ex_2
-
-R
-# in R:
-# data in /gdc_home2/groups/BAG18/5_friday/ex_2/data
-
-# How to install a bioconductor package ?
-# install.packages("edgeR") # it won't work/
-
-# correct way:
-# source("https://bioconductor.org/biocLite.R")
-# biocLite("edgeR")
-
-dir = "/gdc_home2/groups/BAG18/5_friday/ex_2/data/"
-samples <- c( paste0("condA_",1:3,".count"),paste0("condB_",1:4,".count"))
-samples
 
 ##########################################################################################
 # 1) Exploratory plots
 ##########################################################################################
+rm(list = ls())
+load("txi_counts_matrices.RData")
+ls()
+str(txi_gene); # gene-level count matrix, abundance and average transcript length
 
-library(edgeR)
-counts <- readDGE(paste0(dir, samples) )$counts
-colnames(counts) = samples
-head(counts); tail(counts)
+counts = txi_gene$counts
+head( counts ) # gene-level count matrix
 
-# we remove the bottom lines (not genes) by filtering the names without "FBgn"
-counts <- counts[ grep("^FBgn",rownames(counts)), ]
-head(counts); tail(counts)
-dim(counts)
+# 2 groups: 3 females and 3 males
+# 1 additional covariate: time (6, 15 and 18).
+samples = c("F06", "F15", "F18",
+            "M06", "M15", "M18")
 
-group <- c(rep("A",3), rep("B", 4))
+# 3-D MDS plot:
+library(edgeR); library(rgl); library(limma)
 
-library(corrplot)
-library( gplots) 
+### female vs male:
+group_id = c( rep("female", 3), rep("male", 3) )
+cols = ifelse(group_id == "female", "red", "blue")
 
-pdf("raw_counts.pdf")
-# plot counts of samples belonging to the same group
-plot(counts[,5], counts[,6], main = "raw counts", xlab = "B2", ylab = "B3")
-abline(0,1)
-# plot counts of samples belonging to different groups
-plot(counts[,5], counts[,1], main = "raw counts", xlab = "B2", ylab = "A1")
-abline(0,1)
+# Creates a DGEList object:
+d_gene = DGEList(counts = counts, samples = samples);
+d_gene
+# calcNormFactors computes normalizing factors to scale w.r.t. the library size:
+d_gene = calcNormFactors(d_gene)
+d_gene
 
-# correlation between pairs of samples
-corrplot(cor(counts), method="color")
-dev.off()
-# the counts of the samples belonging to the same group are a lot more similar (closer to the main diagonal) 
-# w.r.t. the counts of the samples belonging to different groups.
-# the correlation plot should show a higher correlation between the samples of the same group compared to that one between samples of diffrent groups.
-# in this specific dataset not very evident.
+# log-cpms (not to over-weight highly expressed genes)
+CPM = cpm(d_gene, log = TRUE)
+colnames(CPM) = samples
 
-# we create a DGEList element
-y <- DGEList(counts=counts, group=group)
-y
+# 2D MDS plot based on Gene-level counts:
+plotMDS(CPM, labels = samples, col = cols, main = "Gene MDS")
+# not a clear clustering structure between F and M.
+# instead, a nice separation driven by time: we MUST account for time, when testing btw F and M.
 
-logcounts <- cpm(y,log=TRUE)
-# we use log counts to diminish the importance of high number counts.
+# PCA plot:
+library(ggfortify)
+autoplot(prcomp(t(CPM)), # CPM
+         colour = cols,
+         label = TRUE)
 
-dim(logcounts)
-# to speed up the process, we select the 500 most variable genes.
+# k-means clustering with 2 and 3 groups:
+km_2 = kmeans(t(CPM), 2)
+km_2$cluster
+F06 F15 F18 M06 M15 M18 
+1   1   2   1   1   2 
+# if we consider a clustering in 2 groups, the separation is driven by time: 18 vs (6 and 15)
+# Correlation plots between samples's expression patterns:
+corrplot(cor(CPM), method="color" )
+# Again: not a clear male/femal separation, and 18 have low correlation with the other times.
 
-var_genes <- apply(logcounts, 1, var)
-head(var_genes)
-
-# we select the 500 most variable log-cpm
-select_var <- names(sort(var_genes, decreasing=TRUE))[1:500]
-head(select_var)
-
-# Subset logcounts matrix (only keep the 500 most variables log-cpm)
-highly_variable_lcpm <- logcounts[select_var,]
-dim(highly_variable_lcpm)
-
-colnames(highly_variable_lcpm) = c(paste0("A",1:3), paste0("B", 1:4))
-
-pdf("clustering.pdf")
+# scatterplot of pairs of covariates:
+pairs(highly_variable_lcpm)
+# same story as above.
+# heatmap based on the most variable GENES:
+var_genes <- apply(CPM, 1, var)
+# we select the 10^3 most variable log-cpms
+select_var <- names(sort(var_genes, decreasing=TRUE))[1:1000]
+# Subset CPM matrix (only keep the most variables log-cpm)
+highly_variable_lcpm <- CPM[select_var,]
+library(corrplot); library( gplots) 
 # we apply a hierarchical clustering on the samples and on the rows.
-heatmap.2(highly_variable_lcpm, trace="none", main="Top 500 most variable genes across samples")
-dev.off()
+heatmap.2(highly_variable_lcpm, trace="none", 
+          main="Top 1000 variable Genes")
+# Again gender does not create a clear separation;
+# time=18 seems to be the most distinguishing feature.
+# We want to model time as a discrete covariate (15 is "more similar" to 6 than to 18).
 
+# hierarchical clustering
 # samples are clustered on the top (columns)
 # genes are clustered on the side (rows)
-# useful plot to see 
-# 1) how samples cluster: in this case there is not a clear distinction between the two groups, which suggests the two groups are pretty similar.
-# A1 and B1 are separated from the other samples (they show the smallest correlation in the correlation plot).
+# useful plot to see:
+# 1) how samples cluster;
 # 2) how genes cluster together, often genes with a similar function or in the same pathway cluster together.
-# top genes distinct from the rest: low expression across all samples.
 
 # Note about hierarchical clustering: the length of the tree branches is proportional to the dissimilarity measure.
 
 ##########################################################################################
 # 2) DGE analysis with edgeR
 ##########################################################################################
+# edgeR vignette: https://www.google.com/search?q=edgeR+vignette&rlz=1C5CHFA_enCH779CH779&oq=edgeR+vignette&aqs=chrome..69i57j69i60l3j35i39j0.2312j0j7&sourceid=chrome&ie=UTF-8
 
-# we create a DGEList element
-y <- DGEList(counts=counts, group=group)
-y
-# we calculate the normalization factors to scale for the library size
+rm(list = ls())
+load("txi_counts_matrices.RData")
+ls()
+str(txi_gene); # gene-level count matrix, abundance and average transcript length
+
+cts     <- txi_gene$counts
+normMat <- txi_gene$length
+normMat <- normMat/exp(rowMeans(log(normMat)))
+# We compute a normalization factor (to add as an offset in the NB) for the average transcript length.
+# see: https://bioconductor.org/packages/release/bioc/vignettes/tximport/inst/doc/tximport.html
+# Section: Use with downstream Bioconductor DGE packages
+
+library(edgeR)
+o <- log(calcNormFactors(cts/normMat)) + log(colSums(cts/normMat))
+
+samples = c("F06", "F15", "F18",
+            "M06", "M15", "M18")
+group_id = c( rep("female", 3), rep("male", 3) )
+y <- DGEList(cts, samples = samples, group = group_id)
+y <- scaleOffset(y, t(t(log(normMat)) + o))
+
+# filtering
+keep <- filterByExpr(y)
+y <- y[keep, ]
+# y is now ready for estimate dispersion functions see edgeR User's Guide
+
 y <- calcNormFactors(y)
 y
 # norm.factors column
+# a gene and sample specific offset was created to account for the average transcript length.
 
-design <- model.matrix(~group)
+####################################################################################
+# Ignore time, group is the only covariate:
+####################################################################################
+group_id
+design <- model.matrix(~group_id)
 design # design matrix of our model, the only covariate is the group (A or B)
 
 # first, we estimate the dispersion
 y <- estimateDisp(y, design)
 y$common.dispersion
-[1] 0.03801511
+[1] 0.4563105
 # individual dispersion estimates:
-$tagwise.dispersion
-[1] 0.03041017 0.76230681 0.22885874 0.02265202 0.01817355 ... 15216 more elements ...
+head(y$tagwise.dispersion)
 # moderated dispersion estimates:
-y$trended.dispersion
-[1] 0.05504833 0.12301480 0.12428289 0.03553420 0.03029117 ... 15216 more elements ...
+head(y$trended.dispersion)
 
+# exact likelihood ratio test test:
+# (the exact test is only applicable to experiments with a single factor)
+lrt_exact = exactTest(y)
+lrt_exact
 
 # To perform likelihood ratio test, edgeR applies a glm model, keeping fixed the gene dispersions to the estimated values.
 fit <- glmFit(y, design)
-lrt <- glmLRT(fit, coef=2)
-topTags(lrt)
+lrt <- glmLRT(fit, coef=2) # coef specifies the coefficient to test.
+lrt
+
+# compare the two results (exact and approximate p.value):
+plot(lrt_exact$table$PValue, lrt$table$PValue )
+# the exact test is only applicable to experiments with a single factor.
+
+topTags(lrt_exact)
 # FDR represents the adjusted p.value (BH)
 # to see all results: topTags(lrt, n = Inf)
 # We can also sort by fold change (FC)
-topTags(lrt, sort.by="logFC")
-
-pdf("edgeR.pdf")
-# Multidimensional scaling (MDS) plot:
-plotMDS(y, col=c(rep("red",3), rep("blue", 4)))
-# remember that MDS (and PCA) plots are useful yet partial representations of the data.
+topTags(lrt_exact, sort.by="logFC")
+exp(7.397927)
+# 1632.597
+# Gene "TRINITY_DN3576_c0_g1" is expressed ~1,600 times more in males than in females.
+# it's the same gene as above, time didn't affect this gene.
+design
 
 # plot biological coefficient of variation vs log(CPM), where CPM = Counts per million
 plotBCV(y)
@@ -145,124 +170,273 @@ plotBCV(y)
 # plot FC (fold change) vs log(CPM)
 plotSmear(y)
 # there is more variability for low counts: on the left of the plot, we observe the most extreme FCs.
-dev.off()
+
+save(lrt_exact, lrt, file = "Results/Results_edgeR.Rdata")
+
+####################################################################################
+# Add time as a covariate:
+####################################################################################
+samples
+time = factor(c(6, 15, 18, 6, 15, 18))
+time # we model time as a cathegorical variable with 3 levels (see exploratory plots)
+design <- model.matrix(~group_id + time)
+design # design matrix of our model, the only covariate is the group (A or B)
+
+# first, we estimate the dispersion
+y <- estimateDisp(y, design)
+y$common.dispersion
+[1] 0.1878733
+# individual dispersion estimates:
+head(y$tagwise.dispersion)
+# moderated dispersion estimates:
+head(y$trended.dispersion)
+
+# exact likelihood ratio test test:
+# (the exact test is only applicable to experiments with a single factor)
+# lrt_exact = exactTest(y)
+# lrt_exact
+# by default it tests the first 2 coefficients: intercept vs male
+
+# To perform likelihood ratio test, edgeR applies a glm model, keeping fixed the gene dispersions to the estimated values.
+fit <- glmFit(y, design)
+design
+lrt <- glmLRT(fit, coef=2) # coef specifies the coefficient to test.
+lrt
+
+lrt_time18 <- glmLRT(fit, coef=4) # coef specifies the coefficient to test.
+lrt_time18 # here we test time18 vs (baseline) time6.
+
+# compare the two results (exact and approximate p.value):
+plot(lrt_exact$table$PValue, lrt$table$PValue )
+# the exact test is only applicable to experiments with a single factor.
+
+topTags(lrt_exact)
+# FDR represents the adjusted p.value (BH)
+# to see all results: topTags(lrt, n = Inf)
+# We can also sort by fold change (FC)
+topTags(lrt_exact, sort.by="logFC")
+exp(7.397927)
+# 1639.011
+# Gene "TRINITY_DN3576_c0_g1" is expressed ~1,600 times more in males than in females.
+design
+
+# the p-value, or adjusted p-value (FDR), represents the evidence that there is an effect (statistical significance).
+# The p-value is mainly influenced by
+# 1) the magnitude of the effect (bigger effects are easier to detect);
+# 2) the data available: typically, the more counts, the easier it is to detect an effect.
+# However, it does tell us how "big" the effect is: 
+# a small p-value indicates a "clear/compelling" differnece, but not that this difference is big.
+# The (estimated) FC (or log-FC), instead, measures how strong the change is between conditions (biological relevance).
+# FC = 10, indicates that one gene is (estimated to be) 10 times more expressed in one condition than in the other,
+# but it may not be significant: we typically consider both FC and p-value (or FDR).
+
+# plot biological coefficient of variation vs log(CPM), where CPM = Counts per million
+plotBCV(y)
+
+# plot FC (fold change) vs log(CPM)
+plotSmear(y)
+# there is more variability for low counts: on the left of the plot, we observe the most extreme FCs.
+
+save(lrt_exact, lrt, file = "Results/Results_edgeR_InclTime.Rdata")
+
+####################################################################################
+# Compare results, before and after adding time:
+####################################################################################
+load("Results/Results_edgeR_InclTime.Rdata")
+lrt_exact_time = lrt_exact
+lrt_time = lrt
+
+rm(lrt); rm(lrt_exact)
+load("Results/Results_edgeR.Rdata")
+
+plot(lrt_time$table$PValue, lrt$table$PValue)
+abline(0,1, col = "red", lwd = 3)
+
+dim(lrt_time$table); dim(lrt$table)
+
+sum(lrt_time$table$PValue < 0.05)
+sum(lrt$table$PValue < 0.05)
+
+# accounting for time increases the number of significant genes.
+
+####################################################################################
+# Differential expression above a fold-change threshold:
+####################################################################################
+# The classical DGE approach tests if FC = 1 vs |FC| > 1, or analogously, H0: log(FC) = 0 vs H1: |log(FC)| > 1
+# But a statistically significant FC of 1.1, might not be biologically relevant.
+# We can be more conservative and detect biologically significant FCs, instead, by testing:
+# H0: |log(FC)| < theshold vs H1: |log(FC)| > theshold.
+
+# below threshold = lfc
+design
+fit <- glmQLFit(y, design)
+tr <- glmTreat(fit, coef=2, lfc=1)
+topTags(tr)
 
 ##########################################################################################
 # 3) DGE analysis with DESeq2
 ##########################################################################################
+# DESeq2 vignette: http://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
 
-colData<- data.frame(group = c(rep("A", 3), rep("B", 4)), row.names = colnames(counts))
+rm(list = ls())
+load("txi_counts_matrices.RData")
+ls()
+str(txi_gene); # gene-level count matrix, abundance and average transcript length
 
 library(DESeq2)
-# create a counts matrix object:
-dds = DESeqDataSetFromMatrix( countData = counts,
-                              colData = colData,
-                              design= ~ group)
-                              
-# entire analysis performed in:
-dds <- DESeq(dds)
-# estimating size factors (the normalization for library size)
-# estimating dispersions
-# gene-wise dispersion estimates
-# mean-dispersion relationship
-# final dispersion estimates (moderation)
-# fitting model and testing
+# The user should make sure the rownames of sampleTable align with the colnames 
+# of txi$counts, if there are colnames. The best practice is to read 
+# sampleTable from a CSV file, and to construct files from a column of sampleTable, 
+# as was shown in the tximport examples above.
 
-# access results:
-res_dds <- results(dds)
-res_dds
-# log2 fold change (MLE): group B vs A 
-# Wald test p-value: group B vs A 
-# DataFrame with 15221 rows and 6 columns
+####################################################################################
+# Ignore time, group is the only covariate:
+####################################################################################
+sampleTable <- data.frame(condition = factor(rep(c("female", "male"), each = 3)), 
+                          time = factor(rep(c("6", "15", "18"),  2)) )
+sampleTable
+rownames(sampleTable) <- colnames(txi_gene$counts)
+# We compute a normalization factor (to add as an offset in the NB) for the average transcript length:
+dds <- DESeqDataSetFromTximport(txi_gene, sampleTable, design= ~condition + time)
+# using counts and average transcript lengths from tximport
 
-resultsNames(res_dds)
 
-# Moderation of log2 fold change (FC)
-# "In version 1.16 and higher, we have split the moderation of log2 fold changes into a separate function, lfcShrink"
-res_dds <- lfcShrink(dds, coef=2)
-res_dds
+# filter lowly abundant genes (less than 10 counts)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+dds
 
-pdf("DESeq2.pdf")
+# BiocParallel::MulticoreParam(workers = 4) parallelizes computations on 4 cores.
+# run everything in 1 command:
+dds <- DESeq(dds, BPPARAM = BiocParallel::MulticoreParam(workers = 4))
+resultsNames(dds) # lists the coefficients
+
+# dispersion estimates, in black and blue, before and after shrinking to the common trend:
 plotDispEsts(dds)
 
-# Plot of normalised mean versus log2 fold change:
-plotMA(res_dds)
+# object 'name' needs to match the coefficient above:
+res <- results(dds, name="condition_male_vs_female",
+               BPPARAM = BiocParallel::MulticoreParam(workers = 4))
+res
 
-# Hist of p.values:
-hist(res_dds$pvalue, breaks=100, main = "")
-dev.off()
+# MA-plot
+plotMA(res, ylim=c(-2,2)) # significant genes are in red.
 
+# Plot counts:
+# normalized counts, separated per group, for the most significant gene:
+plotCounts(dds, gene=which.min(res$padj), intgroup="condition")
+# normalized counts, separated per group, for the gene with the biggest FC
+plotCounts(dds, gene=which.max(res$log2FoldChange), intgroup="condition")
+# a lot of uncertainty in this gene: the p.value is NA (see below)
+
+# order results by adjusted p-value (FDR)
+res[ order(res$padj), ]
+
+# order results by adjusted p-value (FDR)
+res[ order( abs(res$log2FoldChange), decreasing = TRUE), ]
+# log2(FC) = yy, so FC = 2^yy
+# 2^7.56815945483854
+# 189.7768
+# TRINITY_DN3576_c0_g1 is estimated to have ~190 times higher expression in males compared to females.
+
+# or to shrink log fold changes association with condition:
+res_shrink <- lfcShrink(dds, coef="condition_male_vs_female", 
+                        BPPARAM = BiocParallel::MulticoreParam(workers = 4))
+res_shrink[ order( abs(res_shrink$log2FoldChange), decreasing = TRUE), ]
+# TRINITY_DN3576_c0_g1 is also top of the list here for FC.
+# 2^5.77070461040883
+# 54.59529
+# FC of TRINITY_DN3576_c0_g1 has changed a lot (in a conservative manner).
+
+save(res, file = "Results/Results_DESeq2.RData")
+rm(res)
+
+####################################################################################
+# Add time as a covariate:
+####################################################################################
+# We compute a normalization factor (to add as an offset in the NB) for the average transcript length:
+group_id = c( rep("female", 3), rep("male", 3) )
+time = factor(c(6, 15, 18, 6, 15, 18))
+design <- model.matrix(~group_id + time)
+design
+
+dds <- DESeqDataSetFromTximport(txi_gene, sampleTable, ~design)
+# using counts and average transcript lengths from tximport
+
+# filter lowly abundant genes (less than 10 counts)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+dds
+
+# BiocParallel::MulticoreParam(workers = 4) parallelizes computations on 4 cores.
+# run everything in 1 command:
+dds <- DESeq(dds, BPPARAM = BiocParallel::MulticoreParam(workers = 4))
+resultsNames(dds) # lists the coefficients
+
+# dispersion estimates, in black and blue, before and after shrinking to the common trend:
+plotDispEsts(dds)
+
+# object 'name' needs to match the coefficient above:
+res <- results(dds, name="condition_male_vs_female",
+               BPPARAM = BiocParallel::MulticoreParam(workers = 4))
+res
+
+# MA-plot
+plotMA(res, ylim=c(-2,2)) # significant genes are in red.
+
+# Plot counts:
+# normalized counts, separated per group, for the most significant gene:
+plotCounts(dds, gene=which.min(res$padj), intgroup="condition")
+# normalized counts, separated per group, for the gene with the biggest FC
+plotCounts(dds, gene=which.max(res$log2FoldChange), intgroup="condition")
+# a lot of uncertainty in this gene: the p.value is NA (see below)
+
+# order results by adjusted p-value (FDR)
+res[ order(res$padj), ]
+# TRINITY_DN3576_c0_g1 still is the most significant gene.
+
+# order results by adjusted p-value (FDR)
+res[ order( abs(res$log2FoldChange), decreasing = TRUE), ]
+
+save(res, file = "Results/Results_DESeq2_InclTime.RData")
 
 ##########################################################################################
-# 4) DGE analysis with DESeq
-##########################################################################################
-
-library(DESeq)
-# create a counts matrix object:
-DESeq_counts = newCountDataSet( counts, group )
-
-# estimate the library size of each sample:
-DESeq_counts = estimateSizeFactors( DESeq_counts )
-sizeFactors( DESeq_counts )
-
-# the original counts:
-head( counts( DESeq_counts, normalized=FALSE ) )
-# the normalized counts:
-head( counts( DESeq_counts, normalized=TRUE ) )
-
-# dispersion estimation (and plot):
-DESeq_counts = estimateDispersions(DESeq_counts)
-
-# sample specific dispersion estimates:
-head( fData(DESeq_counts) )
-
-# Negative-binomial (NB) model likelihood ratio test (LRT) between conditions:
-res = nbinomTest( DESeq_counts, "A", "B" )
-# the LRT takes a bit
-head(res)
-# padj, is an adjusted p.value via BH method.
-
-pdf("DESeq.pdf")
-plotDispEsts(DESeq_counts)
-
-# Plot of normalised mean versus log2 fold change:
-plotMA(res)
-
-# Hist of p.values:
-hist(res$pval, breaks=100, main = "")
-dev.off()
-
-##########################################################################################
-# 5) Compare edgeR, DESeq and DESeq2 significant genes (at a speficied threshold).
+# 4) Compare edgeR and DESeq2 significant genes (for a speficied threshold).
 ##########################################################################################
 # First, we need to sort the results by gene name in order to compare the same gene
 # Then, we need to set a significance threshold, e.g. 5%, and select the significant and non-significant genes.
 
+rm(list = ls())
+load("txi_counts_matrices.RData")
+RES = data.frame(gene_id = rownames(txi_gene$counts))
+
+load("Results/Results_edgeR_InclTime.Rdata")
+load("Results/Results_DESeq2_InclTime.RData")
+
+res_edgeR = topTags(lrt, n = Inf)$table
+match_ = match(RES$gene_id, rownames(res_edgeR))
+res_edgeR_ordered = res_edgeR[ match_, ]
+
+res_DESeq2 = res
+match_2 = match(RES$gene_id, rownames(res_DESeq2))
+res_DESeq2_ordered = res_DESeq2[ match_2, ]
+
+de_05_edgeR  <- res_edgeR_ordered$FDR < .05
+de_05_DESeq2 <- res_DESeq2_ordered$padj < .05
+
+# plot the venn diagramm of the significant genes in the two analyses:
+res_05 <- cbind(edgeR=de_05_edgeR, DESeq2=de_05_DESeq2)
+
+head(res_05); tail(res_05)
+
+vennDiagram(res_05)
 # Remember this is not a method evaluation!
 # The true status of the genes is unknown here:
 # we are just comparing the results to see how similarly the methods' final outputs are.
 
-res_edgeR = topTags(lrt, n = Inf)$table
-match_ = match(res$id, rownames(res_edgeR))
-res_edgeR_ordered = res_edgeR[ match_, ]
-
-match_2 = match(res$id, rownames(res_dds))
-res_dds_ordered = res_dds[ match_2, ]
-
-de_05_edgeR <- res_edgeR_ordered$FDR < .05
-de_05_DESeq <- res$padj < .05
-de_05_DESeq2 <- res_dds_ordered$padj < .05
-
-# plot the venn diagramm of the significant genes in the two analyses:
-res_05 <- cbind(edgeR=de_05_edgeR,DESeq=de_05_DESeq, DESeq2=de_05_DESeq2)
-
-head(res_05)
-
-pdf("VennDiagram.pdf")
-vennDiagram(res_05)
-dev.off()
-
-# Most of the genes picked are in common between the two methods.
+# what do we conclude ?
+# There is a nice agreement between the two methods: most of the genes picked are in common between the two
+# However, DESeq2 is less conservative: it has many more significant genes.
 
 ##########################################################################################
 # More on the topic: eQTL, expression Quantitative Trait Loci
