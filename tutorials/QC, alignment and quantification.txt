@@ -8,14 +8,18 @@
 # 6) Import the output of Salmon in R via tximport package;
 # 7) Use some tools to inspect alignment, fasta and gtf files.
 
-# To obtain the raw data, download:
+# To obtain the raw data, download (maybe already downloaded):
 https://github.com/csoneson/rnaseqworkflow
+
+# to activate the tools needed:
+source activate rnaseq
 
 ##########################################################################################
 # 1.1) use fastqc and multiqc to check the quality of the fastq files.
 ##########################################################################################
 # Set a base directory, inside which we downloaded the github repo:
-base_dir="/home/stiber/Pretoria_course/"
+#base_dir="/home/stiber/Pretoria_course"
+base_dir="/home/rnaseq/my_rnaseqworkflow"
 ls $base_dir
 
 # set the path to the fastq files directory:
@@ -70,27 +74,20 @@ trim_dir=$base_dir/ex_1/trimmed_reads
 # -s/--stringency <INT>, Overlap with adapter sequence required to trim a sequence.
 # Defaults to a very stringent setting of 1, i.e. even a single base pair of overlapping sequence will be trimmed of the 3' end of any read.
 
-
 trim_galore -q 20 --phred33 --length 20 \
 --illumina -o $base_dir/ex_1/trimmed_reads \
 --fastqc --gzip --stringency 3 \
 --paired $fastq_files/SRR1039508_R1.fastq.gz $fastq_files/SRR1039508_R2.fastq.gz
-
-mkdir $base_dir/ex_1/trimmed_reads
 
 trim_galore -q 20 --phred33 --length 20 \
 --illumina -o $base_dir/ex_1/trimmed_reads \
 --fastqc --gzip --stringency 3 \
 --paired $fastq_files/SRR1039509_R1.fastq.gz $fastq_files/SRR1039509_R2.fastq.gz
 
-mkdir $base_dir/ex_1/trimmed_reads
-
 trim_galore -q 20 --phred33 --length 20 \
 --illumina -o $base_dir/ex_1/trimmed_reads \
 --fastqc --gzip --stringency 3 \
 --paired $fastq_files/SRR1039512_R1.fastq.gz $fastq_files/SRR1039512_R2.fastq.gz
-
-mkdir $base_dir/ex_1/trimmed_reads
 
 trim_galore -q 20 --phred33 --length 20 \
 --illumina -o $base_dir/ex_1/trimmed_reads \
@@ -122,11 +119,9 @@ mkdir $base_dir/ex_1/STAR/genome_index
 
 GDIR=$base_dir/ex_1/STAR/genome_index
 
-# Generate Genome index (ALREADY GENERATED), it takes a while
+# Generate Genome index, it takes a while on a full genome:
 STAR --runMode genomeGenerate --runThreadN 4 --genomeDir $GDIR  \
-	   --genomeFastaFiles $fasta \
-  	   --sjdbGTFfile      $gtf \
-	   --sjdbOverhang 62
+	   --genomeFastaFiles $fasta --sjdbGTFfile $gtf --sjdbOverhang 62
 ls $GDIR
 # sjdbOverhang ideally should be the lenght of the reads -1
 # our reads are 63 bps (before trimming at least).
@@ -177,6 +172,7 @@ mkdir $base_dir/ex_1/Salmon
 
 # fasta file, reference transcriptome (cDNA)
 fasta_tr=$base_dir/example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.cdna.all.1.1.10M.fa.gz
+ls $fasta_tr
 
 # where to build the index
 mkdir $base_dir/ex_1/Salmon/Salmon_index
@@ -230,17 +226,18 @@ head $out_Salmon/sample1/quant.sf
 # set the cd to STAR output:
 cd $outDir
 
+R
+# in R:
+# With system("command"), we can run "command" in bash,
+# check names in the current diretory:
+system("ls")
+
 # move the current directory to STAR alignment:
 # either cd $outDir before running R, or (from the $base_dir run the set working directory command:
 # setwd("ex_1/STAR/alignment")
 # to see the current directory, run:
 getwd()
 
-R
-# in R:
-# With system("command"), we can run "command" in bash,
-# check names in the current diretory:
-system("ls")
 
 # we load the aligned reads and count how many reads map to each gene.
 library(Rsubread)
@@ -249,10 +246,10 @@ file_names
 file.exists(file_names)
 
 # gtf should be here:
-system("ls ../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf")
+file.exists("../../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf")
 
 x = featureCounts(files = file_names,
-    annot.ext = "../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf",
+    annot.ext = "../../../example_data/reference/Ensembl.GRCh38.93/Homo_sapiens.GRCh38.93.1.1.10M.gtf",
 	isGTFAnnotationFile = TRUE, isPairedEnd = TRUE )
 str(x)
 # count matrix with 336 genes and 4 samples.
@@ -277,12 +274,13 @@ head(junctions[[1]])
 # similarly to DTU/DTE but with junctions counts only instead of transcript counts.
 # keep in mind that in this way we only use a sub-set of the reads, namely those spanning over >1 exon.
 
-# in this case 1/3 of the reads are junction reads.
+# in this case ~1/3 of the reads are junction reads.
 sum(sapply(junctions, function(x) sum(x$V9)))/sum(x$counts)
 
 # total number of counts:
 sum(x$counts)
-162,857
+# ~170 counts from STAR
+
 
 ##########################################################################################
 # 1.6) use tximport to load the output from Salmon in R
@@ -307,7 +305,8 @@ str(txi);
 # txOut = T if we only want transcript level counts
 # txOut = F if we also want gene level counts (obtained from the transcript level estimates).
 # tx2gene: if we want the gene level estimates, we need to provide Salmon with a 2 column matrix with the matching between transcripts and genes.
-# $infReps represents the bootstrap replicates.
+# $infReps represents the bootstrap replicates: a list of 4 (1 per sample) 1109 * 100 matrices;
+# 1109 = n_genes; 100 = n_bootstrap replicates.
 
 # 1,110 transcritps
 str(txi)
@@ -319,9 +318,9 @@ dim(txi$counts);    # actual matrix of counts, i.e. the estimated number of read
 head( txi$counts[rowSums(txi$counts)>0,] )
 # total number of counts:
 sum(txi$counts)
-170,481
-# 170 k counts from Salmon
-# 163 k counts from STAR
+# ~170 k counts from Salmon
+# very similar to STAR overall counts:
+sum(x$counts)
 
 ##########################################################################################
 # 1.7) use Biostrings to load the (transcriptome) fasta file and create a gene-transcript matching
@@ -358,13 +357,13 @@ head(txi_gene$counts)
 
 # alternatively, we can re-cycle the transcript-level txi object, and aggregate gene-counts via summarizeToGene
 txi_gene_2 = summarizeToGene(txi = txi, tx2gene = tx2genes)
+head(txi_gene_2$counts)
 
 # 182 genes (there were 1,110 transcripts)
 
-sum(txi_gene$counts)
-170,481
+sum(txi$counts); sum(txi_gene$counts); sum(txi_gene_2$counts)
 # same as before, transcript counts have simply been aggregated to the corresponding gene.
-
+# the total number of counts is unchanged.
 
 ##########################################################################################
 # 1.7) rtracklayer::import,
@@ -386,7 +385,7 @@ gtf[gtf$gene_biotype == "rRNA"]
 library(GenomicAlignments)
 # GenomicAlignments helps you visualizse your data
 # vignette: http://bioconductor.org/packages/release/bioc/html/GenomicAlignments.html
-sample1 = readGAlignmentPairs("STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
+sample1 = readGAlignmentPairs("ex_1/STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
 sample1
 sample1[[2]] # 2nd (paired-ended) read from sample1:
 # you can see start/end of reads, width of the (genomic) interval.
@@ -397,9 +396,9 @@ sample1[[2]] # 2nd (paired-ended) read from sample1:
 # Rsubread
 library(Rsubread)
 # vignette: https://bioconductor.org/packages/release/bioc/vignettes/Rsubread/inst/doc/Rsubread.pdf
-sample1_features = featureCounts("STAR/alignment/sample1Aligned.sortedByCoord.out.bam",
+sample1_features = featureCounts("ex_1/STAR/alignment/sample1Aligned.sortedByCoord.out.bam",
                     isPairedEnd=TRUE)
 summary(sample1_features)
 
-propmapped("STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
-# all our reads were properly mapped.
+propmapped("ex_1/STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
+# all our reads from sample 1 were properly mapped.

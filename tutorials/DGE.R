@@ -1,3 +1,5 @@
+# to activate the tools needed:
+source activate rnaseq
 
 # In this tutorial we will do:
 # 1) exploratory plots;
@@ -5,6 +7,15 @@
 # 3) DGE analyses via DESeq2;
 # 4) compare the results via a Venn diagram.
 
+# download the tximport count matrices from github:
+https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/tutorials%20Simone/txi_counts_matrices.RData
+
+wget https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/tutorials%20Simone/txi_counts_matrices.RData
+wget https://github.com/SimoneTiberi/BG4-2018/blob/master/txi_counts_matrices.RData
+wget https://github.com/SimoneTiberi/BG4-2018/blob/master/txi_counts_matrices.RData?raw=true
+# raw=true
+# clone the Github repo:
+get clone https://github.com/SimoneTiberi/BG4-2018.git
 
 ##########################################################################################
 # 1) Exploratory plots
@@ -58,19 +69,17 @@ F06 F15 F18 M06 M15 M18
 1   1   2   1   1   2 
 # if we consider a clustering in 2 groups, the separation is driven by time: 18 vs (6 and 15)
 # Correlation plots between samples's expression patterns:
+library(corrplot)
 corrplot(cor(CPM), method="color" )
 # Again: not a clear male/femal separation, and 18 have low correlation with the other times.
 
-# scatterplot of pairs of covariates:
-pairs(highly_variable_lcpm)
-# same story as above.
 # heatmap based on the most variable GENES:
 var_genes <- apply(CPM, 1, var)
 # we select the 10^3 most variable log-cpms
 select_var <- names(sort(var_genes, decreasing=TRUE))[1:1000]
 # Subset CPM matrix (only keep the most variables log-cpm)
 highly_variable_lcpm <- CPM[select_var,]
-library(corrplot); library( gplots) 
+library( gplots) 
 # we apply a hierarchical clustering on the samples and on the rows.
 heatmap.2(highly_variable_lcpm, trace="none", 
           main="Top 1000 variable Genes")
@@ -86,6 +95,10 @@ heatmap.2(highly_variable_lcpm, trace="none",
 # 2) how genes cluster together, often genes with a similar function or in the same pathway cluster together.
 
 # Note about hierarchical clustering: the length of the tree branches is proportional to the dissimilarity measure.
+
+# scatterplot of pairs of covariates:
+pairs(highly_variable_lcpm)
+# same story as above.
 
 ##########################################################################################
 # 2) DGE analysis with edgeR
@@ -112,6 +125,7 @@ samples = c("F06", "F15", "F18",
 group_id = c( rep("female", 3), rep("male", 3) )
 y <- DGEList(cts, samples = samples, group = group_id)
 y <- scaleOffset(y, t(t(log(normMat)) + o))
+y
 
 # filtering
 keep <- filterByExpr(y)
@@ -292,14 +306,12 @@ library(DESeq2)
 ####################################################################################
 # Ignore time, group is the only covariate:
 ####################################################################################
-sampleTable <- data.frame(condition = factor(rep(c("female", "male"), each = 3)), 
-                          time = factor(rep(c("6", "15", "18"),  2)) )
+sampleTable <- data.frame(condition = factor(rep(c("female", "male"), each = 3)) )
 sampleTable
 rownames(sampleTable) <- colnames(txi_gene$counts)
 # We compute a normalization factor (to add as an offset in the NB) for the average transcript length:
-dds <- DESeqDataSetFromTximport(txi_gene, sampleTable, design= ~condition + time)
+dds <- DESeqDataSetFromTximport(txi_gene, sampleTable, design= ~condition )
 # using counts and average transcript lengths from tximport
-
 
 # filter lowly abundant genes (less than 10 counts)
 keep <- rowSums(counts(dds)) >= 10
@@ -355,13 +367,14 @@ rm(res)
 # Add time as a covariate:
 ####################################################################################
 # We compute a normalization factor (to add as an offset in the NB) for the average transcript length:
-group_id = c( rep("female", 3), rep("male", 3) )
-time = factor(c(6, 15, 18, 6, 15, 18))
-design <- model.matrix(~group_id + time)
-design
-
-dds <- DESeqDataSetFromTximport(txi_gene, sampleTable, ~design)
+sampleTable <- data.frame(condition = factor(rep(c("female", "male"), each = 3)), 
+                          time = factor(rep(c("6", "15", "18"),  2)) )
+sampleTable
+rownames(sampleTable) <- colnames(txi_gene$counts)
+# We compute a normalization factor (to add as an offset in the NB) for the average transcript length:
+dds <- DESeqDataSetFromTximport(txi_gene, sampleTable, design= ~condition + time)
 # using counts and average transcript lengths from tximport
+
 
 # filter lowly abundant genes (less than 10 counts)
 keep <- rowSums(counts(dds)) >= 10
@@ -430,6 +443,9 @@ de_05_DESeq2 <- res_DESeq2_ordered$padj < .05
 res_05 <- cbind(edgeR=de_05_edgeR, DESeq2=de_05_DESeq2)
 
 head(res_05); tail(res_05)
+
+colSums(res_05, na.rm = T)
+# total number of significant genes detected by the two models
 
 vennDiagram(res_05)
 # Remember this is not a method evaluation!

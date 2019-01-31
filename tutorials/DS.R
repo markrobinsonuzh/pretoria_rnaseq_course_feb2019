@@ -1,7 +1,9 @@
+# to activate the tools needed:
+source activate rnaseq
+
 # Overview paper about DTU based on transcript estimated counts:
 # Swimming downstream: statistical analysis of differential transcript usage following Salmon quantification 
 # https://f1000research.com/articles/7-952/v3
-
 
 # In this tutorial we will do:
 # 1) DTU analyses via DRIMSeq;
@@ -64,8 +66,7 @@ design_full <- model.matrix(~ group, data = samples(d))
 design_full
 
 # Dirichlet-Multinomial precision estimate:
-# This took 6 mins on my laptop (on 4 cores)
-# To speed up, set genewise_precision = FALSE
+# This takes ~5 mins (on 4 cores)
 system.time({d <- dmPrecision(d, verbose = 1, genewise_precision = TRUE, 
                  design = design_full,
                  BPPARAM = BiocParallel::MulticoreParam(workers = 4))})
@@ -183,6 +184,8 @@ head(sort(qval))
 res_gene = data.frame(gene = names(qval), qval)
 
 save(res, res_gene, file="Results/DEXSeq_results.RData")
+
+rm(dxd)
 
 ####################################################################################
 # Add time as a covariate:
@@ -304,6 +307,10 @@ res_05 <- cbind(edgeR=de_05_edgeR, DESeq2=de_05_DESeq2,
                 DRIMSeq=de_05_DRIMSeq, DEXSeq=de_05_DEXSeq)
 
 head(res_05); tail(res_05)
+
+colSums(res_05, na.rm = T)
+# total number of significant genes detected by the four models
+# Remember that edgeR and DESeq2 perform DGE, while DRIMSeq and DEXSeq DS (diff splicing)!
 
 vennDiagram(res_05)
 # Remember this is not a method evaluation!
