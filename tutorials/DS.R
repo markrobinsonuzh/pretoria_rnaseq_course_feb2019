@@ -143,7 +143,8 @@ sampleTable
 
 dxd = DEXSeqDataSet(countData = round( txi$counts ),
                     sampleData=sampleTable,
-                    design= ~ sample + exon + condition:exon,
+                    design= ~ sample + exon + 
+                      condition:exon,
                     featureID = rownames(txi$counts),
                     groupID = gene_id)
 dxd
@@ -179,7 +180,8 @@ qval = perGeneQValue(res)
 head(sort(qval))
 
 # Plot of exon/transcript abundance:
-# plotDEXSeq( res,geneID="TRINITY_DN5863_c0_g1", cex.axis=1.2, cex=1.3, lwd=2)
+plotDEXSeq( res,geneID="TRINITY_DN10922_c1_g1", cex.axis=1.2, cex=1.3, lwd=2,
+            expression = FALSE, norCounts = TRUE)
 
 res_gene = data.frame(gene = names(qval), qval)
 
@@ -197,7 +199,9 @@ sampleTable
 
 dxd = DEXSeqDataSet(countData = round( txi$counts ),
                     sampleData=sampleTable,
-                    design= ~ sample + exon + time:exon + condition:exon,
+                    design= ~ sample + exon + 
+                      time:exon
+                    + condition:exon,
                     featureID = rownames(txi$counts),
                     groupID = gene_id)
 dxd
@@ -233,7 +237,8 @@ qval = perGeneQValue(res)
 head(sort(qval))
 
 # Plot of exon/transcript abundance:
-# plotDEXSeq( res,geneID="TRINITY_DN5863_c0_g1", cex.axis=1.2, cex=1.3, lwd=2)
+plotDEXSeq( res,geneID="TRINITY_DN10922_c1_g1", cex.axis=1.2, cex=1.3, lwd=2,
+            expression = FALSE, norCounts = TRUE)
 
 res_gene = data.frame(gene = names(qval), qval)
 

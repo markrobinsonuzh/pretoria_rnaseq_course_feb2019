@@ -154,7 +154,8 @@ head(y$tagwise.dispersion)
 head(y$trended.dispersion)
 
 # exact likelihood ratio test test:
-# (the exact test is only applicable to experiments with a single factor)
+# nice for small sample sizes (it might be more accurate than the canonical glmLRT becase it does not require asymptotics theory),
+# but (unlike glmLRT), it does not allow for continuos covariates (only factors).
 lrt_exact = exactTest(y)
 lrt_exact
 
@@ -206,9 +207,10 @@ head(y$tagwise.dispersion)
 head(y$trended.dispersion)
 
 # exact likelihood ratio test test:
-# (the exact test is only applicable to experiments with a single factor)
-# lrt_exact = exactTest(y)
-# lrt_exact
+# nice for small sample sizes (it might be more accurate than the canonical glmLRT becase it does not require asymptotics theory),
+# but (unlike glmLRT), it does not allow for continuos covariates (only factors).
+lrt_exact = exactTest(y)
+lrt_exact
 # by default it tests the first 2 coefficients: intercept vs male
 
 # To perform likelihood ratio test, edgeR applies a glm model, keeping fixed the gene dispersions to the estimated values.
