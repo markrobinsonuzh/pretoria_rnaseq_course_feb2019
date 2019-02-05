@@ -284,6 +284,8 @@ sum(sapply(junctions, function(x) sum(x$V9)))/sum(x$counts)
 sum(x$counts)
 # ~170 counts from STAR
 
+# quit R:
+q()
 
 ##########################################################################################
 # 1.6) use tximport to load the output from Salmon in R
@@ -367,6 +369,9 @@ head(txi_gene_2$counts)
 sum(txi$counts); sum(txi_gene$counts); sum(txi_gene_2$counts)
 # same as before, transcript counts have simply been aggregated to the corresponding gene.
 # the total number of counts is unchanged.
+
+# quit R:
+q()
 
 ##########################################################################################
 # 1.7) rtracklayer::import,
