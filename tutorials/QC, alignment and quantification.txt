@@ -12,7 +12,7 @@
 https://github.com/csoneson/ARMOR
 
 # or, alternatively, clone the git repo:
-git clone https://github.com/csoneson/ARMOR
+git clone https://github.com/csoneson/ARMOR.git
 
 # to activate the tools needed:
 source activate rnaseq
