@@ -9,7 +9,7 @@
 # 7) Use some tools to inspect alignment, fasta and gtf files.
 
 # To obtain the raw data, download (maybe already downloaded):
-https://github.com/csoneson/rnaseqworkflow
+https://github.com/csoneson/ARMOR
 
 # to activate the tools needed:
 source activate rnaseq
