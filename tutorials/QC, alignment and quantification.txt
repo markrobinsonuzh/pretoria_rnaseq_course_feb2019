@@ -22,7 +22,7 @@ source activate rnaseq
 ##########################################################################################
 # Set a base directory, inside which we downloaded the github repo:
 #base_dir="/home/stiber/Pretoria_course"
-base_dir="/home/rnaseq/my_rnaseqworkflow"
+base_dir="/home/rnaseq/rnaseqworkflow"
 ls $base_dir
 
 # set the path to the fastq files directory:
