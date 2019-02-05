@@ -183,7 +183,7 @@ idx=$base_dir/ex_1/Salmon/Salmon_index
 
 # Build index, it requires some time.
 salmon index -i $idx -t $fasta_tr -p 4 --type quasi -k 31
-# -p 20, specifies the number of clusters to use, 20 in this case.
+# -p 4, specifies the number of clusters to use, 20 in this case.
 ls $idx
 
 # location of fastq files, same as above:
