@@ -173,9 +173,9 @@ topTags(lrt_exact)
 # to see all results: topTags(lrt, n = Inf)
 # We can also sort by fold change (FC)
 topTags(lrt_exact, sort.by="logFC")
-exp(7.397927)
-# 1632.597
-# Gene "TRINITY_DN3576_c0_g1" is expressed ~1,600 times more in males than in females.
+2^7.397927
+# ~170
+# Gene "TRINITY_DN3576_c0_g1" is expressed ~170 times more in males than in females.
 # it's the same gene as above, time didn't affect this gene.
 design
 
@@ -231,9 +231,9 @@ topTags(lrt_exact)
 # to see all results: topTags(lrt, n = Inf)
 # We can also sort by fold change (FC)
 topTags(lrt_exact, sort.by="logFC")
-exp(7.397927)
-# 1639.011
-# Gene "TRINITY_DN3576_c0_g1" is expressed ~1,600 times more in males than in females.
+2^7.397927
+# ~170
+# Gene "TRINITY_DN3576_c0_g1" is expressed ~170 times more in males than in females.
 design
 
 # the p-value, or adjusted p-value (FDR), represents the evidence that there is an effect (statistical significance).
