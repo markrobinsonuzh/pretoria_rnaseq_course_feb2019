@@ -8,14 +8,14 @@ source activate rnaseq
 # 4) compare the results via a Venn diagram.
 
 # download the tximport count matrices from github:
-https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/tutorials%20Simone/txi_counts_matrices.RData
+https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/tutorials/txi_counts_matrices.RData
 
-wget https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/tutorials%20Simone/txi_counts_matrices.RData
-wget https://github.com/SimoneTiberi/BG4-2018/blob/master/txi_counts_matrices.RData
-wget https://github.com/SimoneTiberi/BG4-2018/blob/master/txi_counts_matrices.RData?raw=true
+# to donwload a file from a github repo:
+wget https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/tutorials/txi_counts_matrices.RData?raw=true
 # raw=true
-# clone the Github repo:
-get clone https://github.com/SimoneTiberi/BG4-2018.git
+
+# Or, altetnatively, clone the Github repo:
+get clone https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019.git
 
 ##########################################################################################
 # 1) Exploratory plots
