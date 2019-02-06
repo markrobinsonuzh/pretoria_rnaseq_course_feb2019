@@ -7,6 +7,7 @@
 # 5) Import the output of STAR in R via Rsubread package;
 # 6) Import the output of Salmon in R via tximport package;
 # 7) Use some tools to inspect alignment, fasta and gtf files.
+# 8) Some basic R commands (save & load output, install and load R package)
 
 # To obtain the raw data, download (maybe already downloaded):
 https://github.com/csoneson/ARMOR
@@ -284,9 +285,6 @@ sum(sapply(junctions, function(x) sum(x$V9)))/sum(x$counts)
 sum(x$counts)
 # ~170 counts from STAR
 
-# quit R:
-q()
-
 ##########################################################################################
 # 1.6) use tximport to load the output from Salmon in R
 ##########################################################################################
@@ -410,3 +408,34 @@ summary(sample1_features)
 
 propmapped("ex_1/STAR/alignment/sample1Aligned.sortedByCoord.out.bam")
 # all our reads from sample 1 were properly mapped.
+
+##########################################################################################
+# 1.8) BASIC R COMMANDS:
+##########################################################################################
+# Save the entire output in an ".RData object":
+save.image("output.RData")
+# or, altenatively, save a single object (e.g., the count matrix):
+save(x, file = "count matrix.RData")
+
+# To load back in R the stored output:
+load("output.RData")
+load("count matrix.RData")
+
+# Packages have to be installed before they can be loaded
+# (you only install a package once, then can load it every time you open R).
+
+# installing a Bioconductor package, e.g., tximport:
+# on the webpage you will find the commands to install the package: https://bioconductor.org/packages/release/bioc/html/tximport.html
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("tximport", version = "3.8")
+
+# installing a CRAN R package (e.g., MASS):
+install.packages("MASS")
+
+# loading an R package:
+library(tximport)
+library(MASS)
+
+# quit R from bash:
+q()
