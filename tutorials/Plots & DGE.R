@@ -450,6 +450,11 @@ colSums(res_05, na.rm = T)
 # total number of significant genes detected by the two models
 
 vennDiagram(res_05)
+
+# alternative (probably clearer) way to look at significant genes from differnt methods:
+library(UpSetR)
+upset(as.data.frame(res_05 + 0))
+
 # Remember this is not a method evaluation!
 # The true status of the genes is unknown here:
 # we are just comparing the results to see how similarly the methods' final outputs are.
