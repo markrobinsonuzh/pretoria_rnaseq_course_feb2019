@@ -1,0 +1,201 @@
+
+We will use this Etherpad to share notes, links, ideas, questions that come up during the course. Every participant with the link can simultaneously write text (good behaviour is assumed!). You can enter your name on the right, or be anonymous.
+ 
+Material for the course: 
+https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/
+ 
+ 
+Let's determine an order for Day 3 afternoon ..
+ 
++++++++++++++++full workflow demo ("automated" system to handle many steps of the pipeline)
+ 
+++++++View reads (BAM files) in IGV
+ 
+++++single cell RNA-seq demo (filtering, normalization, clustering)
+ 
++++question/answer session (go through and discuss questions below)
+ 
+++lecture on method comparisons (ROC curves, power, FDR)
+ 
+ 
+Overall +
+ 
+ 
+Overall -
+ 
+ 
+ 
+Day 3 +
+I love R markdown!
+R markdown is great!
+I can see the usefulness of R markdown but I found it very confusing, particularly as I'd never seen R before Monday.
+ 
+Day 3 -
+ 
+ 
+Day 2 +
+It was clear, thank you - good to get information on mathematical models.
+Great, it was much better and slower, did enjoy.
+Thank you
+The slower pace today with the scripts was alot better understood than yesterday
+Slower is better
+I kept up much better than yesterday - thanks
+SO much better!!Thank you!I feel much more confident in R now...
+Very convenient to have the different methods run in parallel to see differences in output and workflow.
+Great explanation of models underlying the analyses and the importance and effect of the models.
+Thanks for going slower on the tutorials - it really helps to have someone explain all the commands and the general workflow
+tutorials at much better pace
+Thank you for covering a lot of very useful information.
+The practical examples help - thank you for the scripts
+ 
+Day 2 -
+I am a bit confused now
+The mathematical models were very confusing and the general explanation of them went abit too fast to actually understand what they do
+its now deeper 
+I really need to go back to my stats books! I am rather confused with the mathematics.
+I've never done any stats other than chi2 so the maths I found difficult
+ 
+ 
+Day 1 +
+Thanks very much for the willingness of helping
+very informative, exciting to get started with this type of analysis
+Real international heroes.
+Worflows and scripts are not the usual handouts that are freely distributed. This kind of help rare to come by. 
+Having the oportunity to ask question and take home the scripts can really speed up projects.
+You have my genuine heartfelt THANK YOU
+Lectures were informative and covered basic knowledge which I had previously been lacking. It was easy to follow but covered all relevant topics.
+enlightening, especially the last session, the hands on.
+Assistance
+Your presentations were very clear, I now understand the general process
+Perfect introduction to the work flow! Thank you!
+Very informative (especially the section on normalization and the overall process)
+Lots of valuable information. Much appreciated.
+Thanks for the help.
+Thanks, just right pace and detail level
+Lectures were perfect speed
+Lectures were a good pace and at an understandable level
+I think that the lectures are at the correct pace, but it is clear that I need a better background in stats. 
+ 
+Day 1 -
+The presentation good but better synchronised with practical session
+Good presentations, however is it possible to conduct the the presentations of each analysis then do the prac, stage by stage?
+I feel that the sessions were slightly too fast for me as I do not fully understand but am getting there.
+The practicals were a bit too fast for me, maybe going slowly through each command and what we are doing at each step would help. I am very new to all of this.
+The practical is better to do on own, but need feedback on what happened.
+the practical/tutorial was a bit fast and tough to folllow
+The practical session was a bit confusing. I think it should be done in conjunction with the presentations (it may take long but I think it would help us understand better). 
+More time is needed for the practical sessions
+The practical session would be more informative if we could go through it together, with the lecturer explaining why we do certain steps. It's difficult to understand why we write certain codes without this guidance.
+ 
+ 
+https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/slides/MRDay1_tech_apps_limma_exploration.pdf
+ 
+https://github.com/markrobinsonuzh/pretoria_rnaseq_course_feb2019/blob/master/slides/QC%2C%20alignment%2C%20quantification.pdf
+ 
+https://docs.google.com/forms/d/e/1FAIpQLSddiJKtWNpksFkTmPTYzB2TXq62OufFaGKAhn98E1_Jo9CGBg/viewform?usp=sf_link
+ 
+Quick thoughts on organizing computational projects:
+    https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000424
+    https://jdblischak.github.io/workflowr/
+ 
+Question: what would you like to get out of this RNA-seq course? (give 1 or 2 sentences  below)
+how to analyse transcriptomics data
+Experimental design for RNA seq analysis
+Analysis of RNA seq data, all aspects 
+Analysis with differentially expressed miRNAs
+Critea or major requirements for publishing RNA seq data
+Analysis with idfferentially expressed genes
+I want to plan a study and know how to approach the analyses and where to look for commands etc. 
+Technical help with analysing transcriptomic data.
+Learn more about the technical and statistical aspects of edgeR and how it compares to other methods
+General overview to help me make sense and possibly re-analyze other researcher's RNA-seq data without their help (Specifically differential gene expression).
+Learn how to analyze the single cell RNA-Seq data: icluding sample qc, and using R packages to do clustering and network analysis and any additional methods of single cell analysis. Also get some advice on noramilizing the single cell data.
+An overview to enable me to advise others on whethere it is a suitable method to use for their research and also possible project design.
+Statistical analysis and differential gene expression analysis
+A better understanding of how RNA-seq data is generated and analysed in a differential gene expression analysis
+Analysing data with few or no biological replication - thus sensibly estimating dispersion
+Statistically analyzing infection data with no reads in the control, but large numbers of reads in infected samples
+RNASeq experimental design
+Data analysis tools and interpretation of generated data
+Workflow apporaches
+Pathway mapping
+Differential expression and how to analyse such data with statistical significance
+Learn the various R tools useful for bioinformatics
+Once I have obtained my raw sequence data, how to assemble it, identify genes of interest and performing differential gene expression analysis
+idea of where to start with my data analysis
+Assembly and normalization of data generated from non-model organisms, with limited biological replication. Analysis of DGE between different tissues and life cycle data, what can be used to get to transcriptional networks?
+Help to analyse transcriptome data and what packages are best suited for different applications
+Understanding the RNASeq workflow from start to finish. Understanding the various methods to visualise data. 
+Also technical help with analysing transcriptomic data, and developing a method of analysing NGS data for various uses.
+Understand how I can take full advantage of the vast amount of data that I have in a logical manner and extract relevant information on differential gene expression. Data analyses!
+Learn how to analysize RNA seq data and pipeline of how to anallysze MiIOn data for transcriptomics. analysing DEG for different parts of the GIT. graphical presentatuion of transcriptomics
+get an idea of the process from raw data to paper
+R analysis after data analysis has been done
+Network analysis for differentially expressed genes   YES
+It would be great to learn how to use the CHPC for RNA-seq.
+how to identify orthologue proteins (identified in more developed species) in my species 
+Please could you also touch on microRNA analysis?
+How to work with previous students' analysed data who are no longer around to explain. Specifically during comparison of RNA-seq data to RT-qPCR results (normalised to house-keeping genes)
+ 
+ 
+ 
+Mark Notes:
+    + miRNA analysis
+    + MinION -- minimap2: https://github.com/lh3/minimap2; https://www.ncbi.nlm.nih.gov/pubmed/29750242
+    + network analysis
+    + CHPC?
+ 
+ 
+Questions: 
+ 
+How to work with previous students' analysed data who are no longer around to explain. Specifically during comparison of RNA-seq data to RT-qPCR results (normalised to house-keeping genes)
+ 
+More information on de novo assemblers? What about Bridger instead of Trinity? 
+I don't know! I couldn't find an independent comparison of Bridger and Trinity, so it's difficult to know. In many cases, there would be considerable overlap between methods (e.g., edgeR and DESeq2 are very similar, but differ in what is reported)
+ 
+ 
+    How best to pool samples for analysis biological vs technical studies
+    Ideally, you can have some replicaton
+https://www.researchgate.net/post/RNA_pooling_is_a_good_approach_for_RNA-Seq
+https://www.rna-seqblog.com/researchers-discourage-sample-pooling-in-rna-seq-experiments/
+ 
+How do you go about mapping pathways? What software do you use to map ? and to 
+ 
+How can you use transcriptome data for gene finding, in the absence of genomic data?
+Difficult!
+https://genomebiology.biomedcentral.com/articles/10.1186/s13059-017-1284-1
+"The Lace software is provided to construct superTranscripts from any set of transcripts, including de novo assemblies."
+ 
+ 
+    There are so many different programs with similar functions to analyze data, how do you decide which one to use?
+- this is difficult also for us! Comes down to a combination of performance (can sometimes get this from benchmark studies), capabilities (some models/tools are more flexible), look-and-feel (user friendliness, usuability), responsiveness of the authors (e.g., Bioconductor support site)
+ 
+ 
+Single cell analysis: whats is your opinion on normalizing the single cell data using spike-ins?
+Opinion: would rather not use spike-ins (have seen studies where the use of spike-ins have been challenged: https://www.nature.com/articles/nbt.2931), but I wouldn't rule it out (they are controls!)
+ 
+ 
+Single cell analysis: how do you handle the biological/ technical noice in the single cell data?
+Many questions still not answered here, but lots of active development.
+ 
+ 
+    How do you analyse mRNA half-life?
+https://www.sciencedirect.com/science/article/pii/S1046202317302773
+Determining mRNA half-lives on a transcriptome-wide scale
+ 
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3939777/
+"We measured half-lives of 21,248 mRNA 3′ isoforms in yeast by rapidly depleting RNA polymerase II from the nucleus and performing direct RNA sequencing throughout the decay process."
+ 
+ 
+ 
+How would you suggests to do troubleshooting in R? 
+Sanity checks!
+Google searches (e.g., of warnings and error messages), biostars (https://www.biostars.org/), Bioconductor support (https://support.bioconductor.org/)
+https://support.rstudio.com/hc/en-us/articles/200488498-Troubleshooting-Guide-Using-RStudio
+https://smithcollege-sds.github.io/sds-public/rmarkdown_problems.html
+ 
+ 
+    
+Links:
+    
+ 
