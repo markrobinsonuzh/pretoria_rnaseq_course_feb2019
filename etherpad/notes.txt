@@ -1,4 +1,3 @@
-
 We will use this Etherpad to share notes, links, ideas, questions that come up during the course. Every participant with the link can simultaneously write text (good behaviour is assumed!). You can enter your name on the right, or be anonymous.
  
 Material for the course: 
@@ -149,17 +148,30 @@ Mark Notes:
 Questions: 
  
 How to work with previous students' analysed data who are no longer around to explain. Specifically during comparison of RNA-seq data to RT-qPCR results (normalised to house-keeping genes)
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4321899/
+
  
 More information on de novo assemblers? What about Bridger instead of Trinity? 
-I don't know! I couldn't find an independent comparison of Bridger and Trinity, so it's difficult to know. In many cases, there would be considerable overlap between methods (e.g., edgeR and DESeq2 are very similar, but differ in what is reported)
+I don't know! I couldn't find an independent comparison of Bridger and Trinity, so it's difficult to know. In many cases, there would be considerable overlap between methods (e.g., edgeR and DESeq2 are very similar, but differ in what is reported). Might want to consider merging.
  
  
     How best to pool samples for analysis biological vs technical studies
     Ideally, you can have some replicaton
 https://www.researchgate.net/post/RNA_pooling_is_a_good_approach_for_RNA-Seq
 https://www.rna-seqblog.com/researchers-discourage-sample-pooling-in-rna-seq-experiments/
+
+
  
-How do you go about mapping pathways? What software do you use to map ? and to 
+How do you go about mapping pathways? What software do you use to map ? and to create/display images of pathways?
+Ortholog identification package.
+
+Can exons be identified in denovo assemblies? (especially non-mRNA-enriched rnaseq data) 
+
+
+Is differential transcript expression selecting for the highest expressed isoform (differentiallly spliced isoform)?
+
+
+
  
 How can you use transcriptome data for gene finding, in the absence of genomic data?
 Difficult!
@@ -172,7 +184,7 @@ https://genomebiology.biomedcentral.com/articles/10.1186/s13059-017-1284-1
  
  
 Single cell analysis: whats is your opinion on normalizing the single cell data using spike-ins?
-Opinion: would rather not use spike-ins (have seen studies where the use of spike-ins have been challenged: https://www.nature.com/articles/nbt.2931), but I wouldn't rule it out (they are controls!)
+Opinion: would rather not use spike-ins (have seen studies where the use of spike-ins have been challenged:https://www.nature.com/articles/nbt.2931), but I wouldn't rule it out (they are controls!)
  
  
 Single cell analysis: how do you handle the biological/ technical noice in the single cell data?
@@ -197,5 +209,5 @@ https://smithcollege-sds.github.io/sds-public/rmarkdown_problems.html
  
     
 Links:
-    
+
  
