@@ -74,6 +74,11 @@ common_precision(d)
 head(genewise_precision(d))
 plotPrecision(d)
 
+# alternatively, instead of plotting in Rstudio, we can save the ggplot (in a pdf or png format):
+library(ggplot2)
+a = plotPrecision(d)
+ggsave(filename = "plot.pdf", plot = a)
+
 # We fit the model
 # ?dmFit
 d <- dmFit(d, design = design_full, verbose = 1, BPPARAM = BiocParallel::MulticoreParam(workers = 4))
@@ -318,6 +323,10 @@ colSums(res_05, na.rm = T)
 # Remember that edgeR and DESeq2 perform DGE, while DRIMSeq and DEXSeq DS (diff splicing)!
 
 vennDiagram(res_05)
+# alternative (probably clearer) way to look at significant genes from differnt methods:
+library(UpSetR)
+upset(as.data.frame(res_05 + 0))
+
 # Remember this is not a method evaluation!
 # The true status of the genes is unknown here:
 # we are just comparing the results to see how similarly the methods' final outputs are.
